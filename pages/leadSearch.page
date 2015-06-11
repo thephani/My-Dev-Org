@@ -1,0 +1,107 @@
+<apex:page controller="leadSearch_controller" sidebar="false" showHeader="false" applyBodyTag="false" standardStylesheets="false">
+    <style>
+        .footer{
+        position: absolute;
+        bottom: 0; 
+        width: 95%;
+        height: 60px;
+        margin: 0px auto !Important;
+        left: 2%;
+        }
+        .textbox { 
+        padding: 10px;
+        height: 50px;
+        width: 100%;
+        background-color: transparent;
+        border-style: solid;
+        border-width: 0px 0px 1px 0px;
+        border-color: #D3D3D3;
+        outline:0;
+        border-radius: 0px !important;
+        }
+        .sButton{
+        color: red !important;
+        float: right;
+        }
+        li.active>a{
+        color: red !important;
+        }
+        li>a{
+        color: gray !important;
+        text-align: center !important;
+        }
+    </style>
+    <head>
+        <link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.4/css/bootstrap.min.css" rel="stylesheet"/>
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.2/jquery.min.js"></script>
+        <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.4/js/bootstrap.min.js"></script>        
+    </head> 
+    <body>        
+        <div class="container">
+            <br/><br/>
+            <div id="myTabContent" class="tab-content"> 
+                
+                <div class="tab-pane fade in active" id="tab1">
+                    <apex:form >
+                        <apex:inputText value="{!searchOrg}" html-placeholder="Organisation" styleClass="textbox"/>
+                        <apex:inputText value="{!searchAbn}" html-placeholder="ABN" styleClass="textbox"/>                    
+                        <br/>
+                        <br/>                    
+                        <apex:commandButton styleClass="btn btn-default sButton" value="Search" action="{!dummyAction}"/>                    
+                        <div class="searchResults">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Lead Name</th>                                    
+                                        <th>Email</th>
+                                    </tr>
+                                </thead>
+                                <apex:repeat value="{!leadList}" var="lead">
+                                    <tr>
+                                        <td><a href="/{!lead.Id}">{!lead.Name}</a></td>
+                                        <td>{!lead.Email}</td>
+                                    </tr>
+                                </apex:repeat>
+                            </table>                      
+                        </div>
+                    </apex:form>
+                </div>
+                
+                
+                <div class="tab-pane fade" id="tab2">
+                    <apex:form >
+                        <apex:inputField styleClass="textbox" value="{!lead.Salutation}" html-placeholder="Salutation"/>
+                        <apex:inputField styleClass="textbox" value="{!lead.firstName}" html-placeholder="First Name"/>
+                        <apex:inputField styleClass="textbox" value="{!lead.lastName}" html-placeholder="Last Name"/>
+                        <apex:inputField styleClass="textbox" value="{!lead.Company}" html-placeholder="Organisation"/>
+                        <apex:inputField styleClass="textbox" value="{!lead.email}" html-placeholder="Email"/>
+                        <apex:inputField styleClass="textbox" value="{!lead.Phone}" html-placeholder="Phone"/>
+                        <apex:inputField styleClass="textbox" value="{!lead.Description}" html-placeholder="Description"/>                    
+                        <br/>
+                        <br/>
+                        <apex:commandButton styleClass="btn btn-default sButton" value="Create Lead" action="{!insertLead}"/> 
+                    </apex:form>
+                </div>
+                
+                
+            </div>        
+            
+            <footer class="footer">                
+                <ul id="myTab" class="nav nav-tabs">  
+                    <li class="active" style="width: 50%;">
+                        <a href="#tab1" data-toggle="tab">
+                            <span class="glyphicon glyphicon-search"></span><br/>
+                            <b>Lookup</b>
+                        </a>
+                    </li>
+                    <li style="width: 50%;">
+                        <a href="#tab2"  data-toggle="tab">
+                            <span class="glyphicon glyphicon-user"></span><br/>
+                            <b>Create Lead</b>
+                        </a>
+                    </li>                    
+                </ul>  
+            </footer>
+        </div>      
+    </body>
+</apex:page>
