@@ -3,30 +3,30 @@
     <style>     
         table{margin-top: 20px; width: 100% !important;}   
         thead, tbody, tr, td, th {display: block; }
-
+        
         tr:after {
-            content: '';
-            display: block;
-            visibility: hidden;
-            clear: both;
+        content: '';
+        display: block;
+        visibility: hidden;
+        clear: both;
         }
         
         thead th {
-            background-color: #082B45;
-            height: 30px;
-            color: white;
-            /*text-align: left;*/
+        background-color: #082B45;
+        height: 30px;
+        color: white;
+        /*text-align: left;*/
         }
         
         tbody {
-            height: 250px;
-            overflow-y: auto;
+        height: 250px;
+        overflow-y: auto;
         }               
         
         tbody td,
         thead th {
-            width: 20%;
-            float: left;
+        width: 20%;
+        float: left;
         }
     </style>
     <div class="container">
@@ -41,96 +41,95 @@
             </thead>
             <tbody>
                 <tr>
-    <td>Demo </td>
-    <td>Engineers</td>
-    <td>Demo </td>
-    <td>Engineers</td>
-</tr>
-<tr>
-    <td>Demo </td>
-    <td>Engineers</td>
-    <td>Demo </td>
-    <td>Engineers</td>
-</tr>
-<tr>
-    <td>Demo </td>
-    <td>Engineers</td>
-    <td>Demo </td>
-    <td>Engineers</td>
-</tr>
-<tr>
-    <td>Demo </td>
-    <td>Engineers</td>
-    <td>Demo </td>
-    <td>Engineers</td>
-</tr>
-<tr>
-    <td>Demo </td>
-    <td>Engineers</td>
-    <td>Demo </td>
-    <td>Engineers</td>
-</tr>
-<tr>
-    <td>Demo </td>
-    <td>Engineers</td>
-    <td>Demo </td>
-    <td>Engineers</td>
-</tr>
-<tr>
-    <td>Demo </td>
-    <td>Engineers</td>
-    <td>Demo </td>
-    <td>Engineers</td>
-</tr>
-<tr>
-    <td>Demo </td>
-    <td>Engineers</td>
-    <td>Demo </td>
-    <td>Engineers</td>
-</tr>
-<tr>
-    <td>Demo </td>
-    <td>Engineers</td>
-    <td>Demo </td>
-    <td>Engineers</td>
-</tr>
-<tr>
-    <td>Demo </td>
-    <td>Engineers</td>
-    <td>Demo </td>
-    <td>Engineers</td>
-</tr>
-<tr>
-    <td>Demo </td>
-    <td>Engineers</td>
-    <td>Demo </td>
-    <td>Engineers</td>
-</tr>
-<tr>
-    <td>Demo </td>
-    <td>Engineers</td>
-    <td>Demo </td>
-    <td>Engineers</td>
-</tr>
-<tr>
-    <td>Demo </td>
-    <td>Engineers</td>
-    <td>Demo </td>
-    <td>Engineers</td>
-</tr>
-<tr>
-    <td>Demo </td>
-    <td>Engineers</td>
-    <td>Demo </td>
-    <td>Engineers</td>
-</tr>
-<tr>
-    <td>Demo </td>
-    <td>Engineers</td>
-    <td>Demo </td>
-    <td>Engineers</td>
-</tr>
-
+                    <td>Demo </td>
+                    <td>Engineers</td>
+                    <td>Demo </td>
+                    <td>Engineers</td>
+                </tr>
+                <tr>
+                    <td>Demo </td>
+                    <td>Engineers</td>
+                    <td>Demo </td>
+                    <td>Engineers</td>
+                </tr>
+                <tr>
+                    <td>Demo </td>
+                    <td>Engineers</td>
+                    <td>Demo </td>
+                    <td>Engineers</td>
+                </tr>
+                <tr>
+                    <td>Demo </td>
+                    <td>Engineers</td>
+                    <td>Demo </td>
+                    <td>Engineers</td>
+                </tr>
+                <tr>
+                    <td>Demo </td>
+                    <td>Engineers</td>
+                    <td>Demo </td>
+                    <td>Engineers</td>
+                </tr>
+                <tr>
+                    <td>Demo </td>
+                    <td>Engineers</td>
+                    <td>Demo </td>
+                    <td>Engineers</td>
+                </tr>
+                <tr>
+                    <td>Demo </td>
+                    <td>Engineers</td>
+                    <td>Demo </td>
+                    <td>Engineers</td>
+                </tr>
+                <tr>
+                    <td>Demo </td>
+                    <td>Engineers</td>
+                    <td>Demo </td>
+                    <td>Engineers</td>
+                </tr>
+                <tr>
+                    <td>Demo </td>
+                    <td>Engineers</td>
+                    <td>Demo </td>
+                    <td>Engineers</td>
+                </tr>
+                <tr>
+                    <td>Demo </td>
+                    <td>Engineers</td>
+                    <td>Demo </td>
+                    <td>Engineers</td>
+                </tr>
+                <tr>
+                    <td>Demo </td>
+                    <td>Engineers</td>
+                    <td>Demo </td>
+                    <td>Engineers</td>
+                </tr>
+                <tr>
+                    <td>Demo </td>
+                    <td>Engineers</td>
+                    <td>Demo </td>
+                    <td>Engineers</td>
+                </tr>
+                <tr>
+                    <td>Demo </td>
+                    <td>Engineers</td>
+                    <td>Demo </td>
+                    <td>Engineers</td>
+                </tr>
+                <tr>
+                    <td>Demo </td>
+                    <td>Engineers</td>
+                    <td>Demo </td>
+                    <td>Engineers</td>
+                </tr>
+                <tr>
+                    <td>Demo </td>
+                    <td>Engineers</td>
+                    <td>Demo </td>
+                    <td>Engineers</td>
+                </tr>                
             </tbody>
         </table>
     </div>
