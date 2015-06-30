@@ -5,28 +5,26 @@
         thead, tbody, tr, td, th {display: block; }
         
         tr:after {
-        content: '';
-        display: block;
-        visibility: hidden;
-        clear: both;
+            content: '';
+            display: block;
+            visibility: hidden;
+            clear: both;
         }
         
         thead th {
-        background-color: #082B45;
-        height: 30px;
-        color: white;
-        /*text-align: left;*/
+            background-color: #082B45;
+            height: 30px;
+            color: white;
         }
         
         tbody {
-        height: 250px;
-        overflow-y: auto;
+            height: 250px;
+            overflow-y: auto;
         }               
         
-        tbody td,
-        thead th {
-        width: 20%;
-        float: left;
+        tbody td, thead th {
+            width: 20%;
+            float: left;
         }
     </style>
     <div class="container">
