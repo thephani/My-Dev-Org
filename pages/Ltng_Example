@@ -4,21 +4,6 @@
         <title>Account Related Cases</title>
         <apex:stylesheet value="{!URLFOR($Resource.SLDS090, 'assets/styles/salesforce-lightning-design-system-vf.css')}" />
     </head>
-    <script>
-        <apex:includeScript value="/support/console/29.0/integration.js"/>
-            
-            // call 'openSubTab' function with only one parameters 'recordId'
-            function openSubTab(recId, caseNumber) {  
-                var redirectUrl = recId;
-            
-                // condition to check for Console
-                if (sforce.console.isInConsole()) {                     
-                    sforce.console.openPrimaryTab(null, redirectUrl, true, caseNumber, '', caseNumber);
-                } else { // other than console                 
-                    window.top.location.href = '/' + redirectUrl;
-                }
-            }
-    </script>
     <body>
         <div class="slds"> 
         <div class="slds-scrollable--x">
