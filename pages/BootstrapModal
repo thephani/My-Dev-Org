@@ -1,0 +1,131 @@
+<apex:page standardStylesheets="false" standardController="Account" extensions="Account_Quick_contacts_controller" title="Popup Example" applyBodyTag="false" sidebar="false" showHeader="false">
+    
+    <head>
+        <link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" rel="stylesheet" integrity="sha256-7s5uDGW3AHqw6xtJmNNtr+OBRJUlgkNJEo78P4b0yRw= sha512-nNo+yCHEyn0smMxSswnf/OnX6/KwJuZTlNZBjauKhTK0c+zT+q5JOCx0UFhXQ6rJR9jg6Es8gPuD2uZcYDLqSw==" crossorigin="anonymous" />
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
+        <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js" integrity="sha256-KXn5puMvxCw+dAYznun+drMdG1IFl3agK0p/pqT9KAo= sha512-2e8qq0ETcfWRI4HJBzQiA3UoyFk6tbNyG+qSaIBZLyW9Xf3sWZHN/lxe9fTh1U45DpPf07yj94KsUHHWe4Yk1A==" crossorigin="anonymous"></script>
+        <style>
+            .container-fluid {
+            margin-top: 10px;
+            }
+        </style>
+    </head>
+    
+    <body>
+        <apex:form>
+            <div class="container-fluid">
+                <div class="panel panel-default">
+                    <div class="panel-body">
+                        <div class="panel panel-success">
+                            <div class="panel-heading">Account Information</div>
+                            <div class="panel-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="form-group">
+                                            <label for="aName">Account Name</label>
+                                            <br />
+                                            <apex:outputField value="{!acc.Name}" />
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-group">
+                                            <label for="aOwner">Owner</label>
+                                            <br />
+                                            <apex:outputField value="{!acc.OwnerId}" />
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="form-group">
+                                            <label for="Type">Account Type</label>
+                                            <br />
+                                            <apex:outputField value="{!acc.Type}" />
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-group">
+                                            <label for="Website">Website</label>
+                                            <br />
+                                            <apex:outputField value="{!acc.Website}" />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="panel panel-info">
+                            <div class="panel-heading"><div>
+                                Related Contacts
+                                <button type="button" class="btn btn-info" data-toggle="modal" data-target="#myModal" style="float: right;">
+                                    <span class="glyphicon glyphicon-plus-sign" /> New
+                                </button>
+                                </div>
+                                <div class="modal fade" id="myModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel">
+                                    <div class="modal-dialog" role="document">
+                                        <div class="modal-content">
+                                            <div class="modal-header">
+                                                <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span>
+                                                </button>
+                                                <h4 class="modal-title" id="myModalLabel">New Contact</h4>
+                                            </div>
+                                            <div class="modal-body">
+                                                <div class="form-group">
+                                                    <label>First Name</label><br />
+                                                    <apex:inputField value="{!singleCon.FirstName}" html-placeholder="First Name" styleClass="form-control"/>
+                                                </div>
+                                                <div class="form-group">
+                                                    <label>Last Name</label><br />
+                                                    <apex:inputField value="{!singleCon.LastName}" html-placeholder="Last Name" styleClass="form-control"/>
+                                                </div>
+                                                <div class="form-group">
+                                                    <label>Email</label><br />
+                                                    <apex:inputField value="{!singleCon.Email}" html-placeholder="Email Address" styleClass="form-control"/>
+                                                </div>
+                                                <div class="form-group">
+                                                    <label>Mobile</label><br />
+                                                    <apex:inputField value="{!singleCon.Phone}" html-placeholder="Mobile Number" styleClass="form-control"/>
+                                                </div> 
+                                            </div>
+                                            <div class="modal-footer">
+                                                <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>                                                
+                                                <apex:commandButton styleclass="btn btn-primary" value="Save" action="{!addContact}" reRender="contactTable" onComplete="$('#myModal').modal('hide');$('body').removeClass('modal-open');$('.modal-backdrop').remove();"/>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="panel-body">
+                                <apex:outputPanel id="contactTable">
+                                    <table class="table table-condensed">
+                                        <tr>
+                                            <th>First Name</th>
+                                            <th>Last name</th>
+                                            <th>Email</th>
+                                            <th>Mobile</th>
+                                        </tr>
+                                        <apex:repeat value="{!contactList}" var="con">
+                                            <tr>
+                                                <td>
+                                                    <apex:outputField value="{!con.FirstName}" />
+                                                </td>
+                                                <td>
+                                                    <apex:outputField value="{!con.LastName}" />
+                                                </td>
+                                                <td>
+                                                    <apex:outputField value="{!con.Email}" />
+                                                </td>
+                                                <td>
+                                                    <apex:outputField value="{!con.Phone}" />
+                                                </td>
+                                            </tr>
+                                        </apex:repeat>
+                                    </table>
+                                </apex:outputPanel>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </apex:form>
+    </body>
+</apex:page>
