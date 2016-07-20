@@ -1,0 +1,23 @@
+<apex:page standardController="Account">  
+    <apex:variable value="{!0.00}" var="Total"/>
+    <apex:pageBlock >        
+        <apex:pageBlockSection columns="1">            
+            <apex:pageBlockTable value="{!Account.Contacts}" var="con">               
+                <apex:column value="{!con.Name}"/>
+                <apex:column value="{!con.Email}"/>
+                <apex:column headerValue="Precio Ownerslink">
+                    <apex:outputField value="{!con.Amount__c}"/>
+                    <apex:variable var="Total" value="{!Total + con.Amount__c}"/>                    
+                    <!-- Footer of the first Cell -->
+                    <apex:facet name="footer">
+                        Total: <span class="t1"></span>
+                    </apex:facet>
+                </apex:column>              
+            </apex:pageBlockTable>            
+        </apex:pageBlockSection>
+    </apex:pageBlock>
+    <script>
+    // Here we will set the generated subtotals to the footer cells
+    document.getElementsByClassName('t1')[0].innerHTML = '{!Total}';    
+</script>  
+</apex:page>
