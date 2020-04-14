@@ -72,7 +72,6 @@ export default class Cases extends LightningElement {
   }
 
   handleHeaderAction(event) {
-    console.log(JSON.stringify(event.detail.action));
     const actionName = event.detail.action.name;
     const colDef = event.detail.columnDefinition;
     const cols = this.columns;
