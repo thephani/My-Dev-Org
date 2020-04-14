@@ -62,7 +62,6 @@ export default class Cases extends LightningElement {
   @wire(getCases)
   wiredCases({ error, data }) {
     if (data) {
-      console.log("cases data ", data);
       this.ALL_CASES = data;
       this.cases = data;
       this.error = undefined;
