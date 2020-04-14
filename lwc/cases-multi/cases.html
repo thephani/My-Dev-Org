@@ -1,0 +1,7 @@
+<template>
+    <template if:true={showTable}>
+        <lightning-datatable key-field="id" data={cases} columns={columns} hide-checkbox-column
+            onheaderaction={handleHeaderAction}>
+        </lightning-datatable>
+    </template>
+</template>
