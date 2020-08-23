@@ -1,8 +1,8 @@
-public class jsonPreview { 
+public class jsonPreview_controller { 
 
     public string result {get; set;} 
 
-    public jsonPreview() { 
+    public jsonPreview_controller() { 
 
         Id id = ApexPages.currentPage().getParameters().get('id'); 
         string sObj = id.getSObjectType().getDescribe().getName(); 

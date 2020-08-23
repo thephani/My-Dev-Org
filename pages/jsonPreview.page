@@ -1,4 +1,4 @@
-<apex:page controller="jsonPreview" sidebar="false"  showHeader="false" standardStylesheets="false" 
+<apex:page controller="jsonPreview_controller" sidebar="false"  showHeader="false" standardStylesheets="false" 
             contentType="application/x-JavaScript; charset=utf-8">
     {!result}  
 </apex:page> 
