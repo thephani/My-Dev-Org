@@ -15,7 +15,7 @@ jobs:
           fetch-depth: 0
       - name: Install SFDX CLI and Scanner
         run: |
-          npm install sfdx-cli -g
+          npm install @salesforce/cli --global
           sfdx plugins:install lightning-flow-scanner
       - name: Authenticate org
         run:  sf org login jwt --client-id {{vars.DEV_CLIENT_ID__SFDX}} --jwt-key-file {{vars.JWT_KEY__SFDX}} --username phani@force.com --alias my-dev-org
