@@ -30,3 +30,6 @@ jobs:
       - name: Authenticate org
         run: |
           sf org login jwt --client-id ${{ secrets.DEV_CLIENT_ID__SFDX }} --jwt-key-file ./server.key --username phani@force.com --setdefaultdevhubusername --setalias my-dev-org
+      
+      - name: Run Flows scanner
+        run: sfdx flow:scan --json
