@@ -13,16 +13,12 @@ jobs:
       - uses: actions/checkout@v3
         with:
           fetch-depth: 0
-      - name: Generate Server Key
-        shell: bash
-        run: |
-          echo ${{secrets.JWT_KEY__SFDX}} > server.key
-          
       - name: Install SFDX CLI and Scanner
         run: |
           npm install @salesforce/cli --global 
           sfdx plugins:install lightning-flow-scanner
           echo 'y'
+          echo ${{secrets.JWT_KEY__SFDX}} > server.key
       
       - name: Authenticate org
         run:  sf org login jwt --client-id {{secrets.DEV_CLIENT_ID__SFDX}} --jwt-key-file ./server.key --username phani@force.com --alias my-dev-org
