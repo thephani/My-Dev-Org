@@ -11,6 +11,7 @@ public class Account_Quick_contacts_controller {
     }
     
     public void addContact(){
+// test
         singleCon.AccountId = acc.Id;
         insert singleCon;
 		contactList.add(singleCon);        
