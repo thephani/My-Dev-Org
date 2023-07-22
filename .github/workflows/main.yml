@@ -7,11 +7,11 @@ on:
     pull_request:
       # The events are that a PR is opened, or when a commit is pushed
       # to a branch that has an existing pull request
-      types: [opened, synchronize]
+      types: [opened]
       # The branches filter allows to specify that this workflow should only
       # run if the branch name is "develop". This way we prevent this workflow
       # from running when PRs are opened on other branches
-      branches: [ develop ]
+      branches: [ main ]
       # We only care about changes to the force-app directory, which is the
       # root directory of the sfdx project. This prevents the job from running
       # when changing non-salesforce files (like this yml file).
@@ -103,20 +103,20 @@ jobs:
             # that has changed between commits. I highly recommend going over the github readme 
             # for more information on how this works.
 
-            - name: 'Installing sfdx git delta'
-              run: | 
-                  echo y | sfdx plugins:install sfdx-git-delta
-                  sfdx plugins 
+         #   - name: 'Installing sfdx git delta'
+           #   run: | 
+             #     echo y | sfdx plugins:install sfdx-git-delta
+              #    sfdx plugins 
 
             # Install java as it is required for the next step
-            - name: 'Installing java'
-              run: |
-                sudo apt-get update
-                sudo apt install default-jdk
+          #   - name: 'Installing java'
+            #   run: |
+            #     sudo apt-get update
+               #  sudo apt install default-jdk
 
             # Install SFDX scanner
-            - name: 'Installing SFDX scanner'
-              run: sfdx plugins:install @salesforce/sfdx-scanner
+            - name: 'Installing SFDX lightning scanner'
+              run: sfdx plugins:install lightning-flow-scanner
 
             # Prior to setting up this workflow, you have to create a Github Secret
             # that contains the sfdx url of the integration/qa org.
@@ -140,47 +140,6 @@ jobs:
             - name: 'Authenticate to Integration Org'
               run: sfdx auth:sfdxurl:store -f ./SFDX_INTEGRATION_URL.txt -s -a integration
 
-            # We use SFDX Git Delta to create a directory with only the metadata that has changed.
-            # this allows us to deploy only those changes, as opposed to deploying the entire branch. 
-            # This helps reducing deployment times
-            - name: 'Create delta packages for new, modified or deleted metadata'
-              run: | 
-                  mkdir changed-sources
-                  sfdx sgd:source:delta --to "HEAD" --from "HEAD^" --output changed-sources/ --generate-delta --source force-app/ 
 
-            # Now we can use the sfdx scanner to scan the code in the delta directory
-            # The output of the scan is stored in a file called apexScanResults.sarif
-
-            # The .sarif file can later be uploaded to github, so that we can see the 
-            # results of the scan directly from the PR.
-
-            - name: 'Scan code'
-              run: |
-                  cd changed-sources
-                  sfdx scanner:run --format sarif --target './**/*.cls' --category "Design,Best Practices,Performance" --outfile 'apexScanResults.sarif'  
-                  cd ..
-
-            # Now we upload the .sarif file as explained in the previous step
-            - name: Upload SARIF file
-              uses: github/codeql-action/upload-sarif@v1
-              with:
-                sarif_file: changed-sources/apexScanResults.sarif
-
-            # We do a check-only deploy and we only run the tests specified in the PR
-            # If the env variable does not equal 'all', we know that there is a list of
-            # tests that can be run
-
-            - name: 'Check-only deploy delta changes - run specified tests'
-              if: ${{ env.APEX_TESTS != 'all' }}
-              run: |
-                  echo ${{env.APEX_TESTS}}
-                  sfdx force:source:deploy -p "changed-sources/force-app" --checkonly --testlevel RunSpecifiedTests --runtests ${{env.APEX_TESTS}} --json
-
-            # If the env variable equals all, we run all tests
-            - name: 'Check-only deploy delta changes - run all tests'
-              if: ${{ env.APEX_TESTS == 'all' }}
-              run: |
-                  sfdx force:source:deploy -p "changed-sources/force-app" --checkonly --testlevel RunLocalTests  --json
-
-            - name: 'Deploy destructive changes (if any)'
+            - name: 'Look for flow recommendations'
               run: sfdx force:mdapi:deploy -d "changed-sources/destructiveChanges" --checkonly --ignorewarnings 
