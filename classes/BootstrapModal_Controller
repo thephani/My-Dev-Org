@@ -5,7 +5,7 @@ public class Account_Quick_contacts_controller {
     public Account acc {get; set;}
     public Contact singleCon {get; set;}
     public Account_Quick_contacts_controller(ApexPages.StandardController sc){
-        acc = [SELECT Id, Name, OwnerId, Type, Website FROM Account WHERE Id =: sc.getId()];
+        acc = [SELECT Id, Name, OwnerId, Type, Website FROM Account WHERE Id =: sc.getId() LIMIT 5];
         contactList = [SELECT Id, Email, FirstName, LastName, Phone FROM Contact WHERE AccountId =: acc.Id];
         singleCon = new Contact();
     }
