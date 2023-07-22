@@ -13,6 +13,10 @@ jobs:
       - uses: actions/checkout@v3
         with:
           fetch-depth: 0
+      - name: create folder and save server.key
+        run: |
+            mkdir keys
+            echo ${{secrets.JWT_KEY__SFDX}} > keys/server.key
       - name: Install SFDX CLI and Scanner
         run: |
           npm install @salesforce/cli --global 
