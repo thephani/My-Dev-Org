@@ -24,4 +24,4 @@ jobs:
           echo 'y'
       
       - name: Authenticate org
-        run:  sf org login jwt --client-id $DEV_CLIENT_ID__SFDX --jwt-key-file ./server.key --username phani@force.com --alias my-dev-org
+        run:  sf org login jwt --client-id ${{DEV_CLIENT_ID__SFDX}} --jwt-key-file ./server.key --username phani@force.com --alias my-dev-org
