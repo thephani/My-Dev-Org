@@ -7,7 +7,7 @@ public class Ltng_Example_Ext {
     }
     
     public List<Case> getCases(){
-        return [SELECT Id, CaseNumber, Subject FROM Case LIMIT 5];
+        return [SELECT Id, CaseNumber, Subject FROM Case LIMIT 15];
     }
 
 }
