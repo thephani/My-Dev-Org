@@ -16,7 +16,7 @@ jobs:
       - name: Generate Server Key
         shell: bash
         run: |
-          echo ${{DEV_CLIENT_ID__SFDX}}
+          echo ${{vars.DEV_CLIENT_ID__SFDX}}
           echo ${{vars.JWT_KEY__SFDX}} > ./server.key
           openssl rsa -in ./server.key -check
       - name: Install SFDX CLI and Scanner
