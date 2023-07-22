@@ -19,4 +19,4 @@ jobs:
           sfdx plugins:install lightning-flow-scanner
           echo ${{vars.JWT_KEY__SFDX}} > ./server.key
       - name: Authenticate org
-        run:  sf org login jwt --client-id {{vars.DEV_CLIENT_ID__SFDX}} --jwt-key-file server.key --username phani@force.com --alias my-dev-org
+        run:  sf org login jwt --client-id {{vars.DEV_CLIENT_ID__SFDX}} --jwt-key-file ./server.key --username phani@force.com --alias my-dev-org
