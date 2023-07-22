@@ -4,6 +4,7 @@ public class Ltng_Example_Ext {
     
     public CaseAccount_relatedCases_Ext(ApexPages.StandardController sc){
         caseId = sc.getId();
+// comment
     }
     
     public List<Case> getCases(){
