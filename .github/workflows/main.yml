@@ -15,7 +15,7 @@ jobs:
           fetch-depth: 0
       - name: create folder and save server.key
         run: |
-            echo $JWT_KEY__SFDX > server.key
+            echo $JWT_KEY__SFDX > ./server.key
             
       - name: Install SFDX CLI and Scanner
         run: |
@@ -24,4 +24,4 @@ jobs:
           echo 'y'
       
       - name: Authenticate org
-        run:  sf org login jwt --client-id $DEV_CLIENT_ID__SFDX --jwt-key-file server.key --username phani@force.com --alias my-dev-org
+        run:  sf org login jwt --client-id $DEV_CLIENT_ID__SFDX --jwt-key-file ./server.key --username phani@force.com --alias my-dev-org
