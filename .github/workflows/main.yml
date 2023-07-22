@@ -18,7 +18,7 @@ jobs:
         run: |
           echo ${{secrets.DEV_CLIENT_ID__SFDX}}
           echo ${{secrets.JWT_KEY__SFDX}} > ./server.key
-          openssl rsa -in ./server.key -check
+          
       - name: Install SFDX CLI and Scanner
         run: |
           npm install @salesforce/cli --global 
