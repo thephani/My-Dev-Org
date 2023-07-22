@@ -1,27 +1,31 @@
 name: Validate PR on flow deployment
-'on':
+
+on:
   pull_request:
     types:
       - opened
       - reopened
       - synchronize
-  workflow_dispatch: null
+
 jobs:
   analyze:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
-      - name: create folder and save server.key
-        run: |
-            echo $JWT_KEY__SFDX > ./server.key
-            
+
+      - name: Create folder and save server.key
+        run: echo "${{ secrets.JWT_KEY__SFDX }}" > ./server.key
+
       - name: Install SFDX CLI and Scanner
         run: |
-          npm install @salesforce/cli --global 
-          sfdx plugins:install lightning-flow-scanner
+          npm install @salesforce/cli --global
+          sfdx plugins:install lightning-flow-scanner --quiet
           echo 'y'
-      
+
       - name: Authenticate org
-        run:  sf org login jwt --client-id ${{secrets.DEV_CLIENT_ID__SFDX}} --jwt-key-file ./server.key --username phani@force.com --alias my-dev-org
+        run: |
+          sf org login jwt --client-id ${{ secrets.DEV_CLIENT_ID__SFDX }} --jwt-key-file ./server.key --username phani@force.com --setdefaultdevhubusername --setalias my-dev-org
