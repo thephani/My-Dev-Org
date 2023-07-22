@@ -3,6 +3,7 @@ public class Ltng_Example_Ext {
     Id accountId, caseId;
     
     public CaseAccount_relatedCases_Ext(ApexPages.StandardController sc){
+    // comments
         caseId = sc.getId();
     }
     
