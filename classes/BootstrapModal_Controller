@@ -9,6 +9,8 @@ public class Account_Quick_contacts_controller {
         contactList = [SELECT Id, Email, FirstName, LastName, Phone FROM Contact WHERE AccountId =: acc.Id];
         singleCon = new Contact();
     }
+
+
     
     public void addContact(){
         singleCon.AccountId = acc.Id;
