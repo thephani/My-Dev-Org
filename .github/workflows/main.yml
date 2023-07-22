@@ -17,7 +17,9 @@ jobs:
         run: |
           npm install @salesforce/cli --global
           sfdx plugins:install lightning-flow-scanner
-          shell: bash
+      - name: Generate Server Key
+        shell: bash
+        run: |
           echo ${{vars.JWT_KEY__SFDX}} > ./server.key
       - name: Authenticate org
         run:  sf org login jwt --client-id {{vars.DEV_CLIENT_ID__SFDX}} --jwt-key-file ./server.key --username phani@force.com --alias my-dev-org
