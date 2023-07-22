@@ -15,8 +15,7 @@ jobs:
           fetch-depth: 0
       - name: create folder and save server.key
         run: |
-            mkdir keys
-            echo ${{ secrets.JWT_KEY__SFDX }} > keys/server.key
+            echo $JWT_KEY__SFDX > server.key
             
       - name: Install SFDX CLI and Scanner
         run: |
