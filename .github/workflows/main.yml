@@ -19,7 +19,8 @@ jobs:
           echo ${{vars.JWT_KEY__SFDX}} > ./server.key
       - name: Install SFDX CLI and Scanner
         run: |
-          npm install @salesforce/cli --global
+          npm install @salesforce/cli --global 
+          echo 'y'
           sfdx plugins:install lightning-flow-scanner
       
       - name: Authenticate org
