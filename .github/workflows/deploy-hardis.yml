@@ -82,10 +82,13 @@ jobs:
       - name: Validate PR changes with Hardis
         if: steps.delta.outputs.changed == 'true'
         env:
-          SF_USERNAME: ${{ secrets.SF_USERNAME }}
-          SF_CLIENT_ID: ${{ secrets.DEV_CLIENT_ID__SFDX }}
+          SF_USERNAME: ${{ vars.SF_USERNAME }}
+          SF_CLIENT_ID: ${{ vars.DEV_CLIENT_ID }}
           SF_JWT_KEY: ${{ secrets.SIMPLECLI_KEY }}
         run: |
+          [[ -n "$SF_USERNAME" ]] || { echo '::error::Set SF_USERNAME as a GitHub secret or variable.'; exit 1; }
+          [[ -n "$SF_CLIENT_ID" ]] || { echo '::error::Set secret DEV_CLIENT_ID__SFDX or variable DEV_CLIENT_ID.'; exit 1; }
+          [[ -n "$SF_JWT_KEY" ]] || { echo '::error::Set the SIMPLECLI_KEY GitHub secret.'; exit 1; }
           umask 077
           printf '%s' "$SF_JWT_KEY" > "$RUNNER_TEMP/salesforce-jwt.key"
           login_url=https://login.salesforce.com
