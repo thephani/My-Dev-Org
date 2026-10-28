@@ -27,7 +27,7 @@ jobs:
 
       - name: Authenticate org
         run: |
-          sf org login jwt --client-id ${{ secrets.DEV_CLIENT_ID__SFDX }} --jwt-key-file ./server.key --username phani@force.com --set-default-dev-hub --alias my-dev-org
+          sf org login jwt --client-id ${{ vars.DEV_CLIENT_ID }} --jwt-key-file ./server.key --username phani@force.com --set-default-dev-hub --alias my-dev-org
           
       - name: Run All Test
         run: sfdx force:apex:test:run
