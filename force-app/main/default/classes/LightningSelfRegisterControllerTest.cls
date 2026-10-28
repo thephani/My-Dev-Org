@@ -10,11 +10,12 @@ public with sharing class LightningSelfRegisterControllerTest {
   System.assert(LightningSelfRegisterController.isValidPassword(null, 'fakePwd') == false);
  }
 
- /* Verifies the default value of siteAsContainerEnabled method. */
+ /* No site-container configuration exists outside a community context. */
  @IsTest
- static void testSiteAsContainerEnabled() {
+ static void testSiteAsContainerOutsideCommunity() {
   String networkId = Network.getNetworkId();
-  System.assertNotEquals(null, LightningSelfRegisterController.siteAsContainerEnabled(networkId));
+  System.assertEquals(null, networkId);
+  System.assertEquals(null, LightningSelfRegisterController.siteAsContainerEnabled(networkId));
  }
 
  /* Verifies the selfRegistration method flow with various invalid inputs */

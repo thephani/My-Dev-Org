@@ -24,93 +24,133 @@
  *  ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 **/
 
-/**
- * Initial test for the MetadataCreateJob utility class, 
- *   more testing will be permitted once Summer'13 is released and mixed mock callouts and DML permitted
- **/
+/** Tests metadata creation, independent requests, and follow-up polling. */
 @IsTest
-private with sharing class MetadataCreateJobTest 
-{
-    /**
-     * Metadata Web Service mock for testing MetadataCreateJob
-     **/
-	private class WebServiceMockImpl implements WebServiceMock 
-	{
-		public void doInvoke(
-			Object stub, Object request, Map<String, Object> response,
-			String endpoint, String soapAction, String requestName,
-			String responseNS, String responseName, String responseType) 
-		{
-			// Mock response for 'create' operation?
-			if(request instanceof MetadataService.create_element)
-			{
-				MetadataService.createResponse_element responseElement = new MetadataService.createResponse_element();
-				MetadataService.AsyncResult asyncResult = new MetadataService.AsyncResult();
-				asyncResult.done = false; // Emulate the need for a second job execution to poll via checkStatus
-				responseElement.result = new MetadataService.AsyncResult[] { asyncResult };
-				response.put('response_x', responseElement);				
-			}			
-			// Mock response for 'checkStatus' operation?			
-			else if(request instanceof MetadataService.checkStatus_element)
-			{				
-				MetadataService.checkStatusResponse_element responseElement = new MetadataService.checkStatusResponse_element();
-				MetadataService.AsyncResult asyncResult = new MetadataService.AsyncResult();
-				asyncResult.done = true; // Emulate completion of the original 'create' operation
-				responseElement.result = new MetadataService.AsyncResult[] { asyncResult };
-				response.put('response_x', responseElement);
-			}
-			return;
-		}
-	}    
+private class MetadataCreateJobTest {
+    private class WebServiceMockImpl implements WebServiceMock {
+        private Boolean pending;
+        WebServiceMockImpl(Boolean pending) { this.pending = pending; }
 
-	private static testmethod void testCreateField()
-	{
-    	// Metadata Web Service mock implementation
-        Test.setMock(WebServiceMock.class, new WebServiceMockImpl());
-		
-		// Create a field
-		Test.startTest();
-		MetadataService.CustomField customField = new MetadataService.CustomField();
-		customField.fullName = 'Test__c.TestField__c';
-		customField.label = 'Test Field';
-		customField.type_x = 'Text';
-		customField.length = 42;
-		MetadataCreateJob.Item item = new MetadataCreateJob.Item(customField);
-		item.context = 'Some context';
-		MetadataCreateJob.run(
-			new List<MetadataCreateJob.Item> { item },
-			new AssertMetadataAsyncCallback());
-		Test.stopTest(); // Assertions are implemented in the AssertMetadataAsyncCallback methods 		
-	}
-	
-	/**
-	 * Class implements callback provided to the create job and asserts the results
-	 **/
-	public class AssertMetadataAsyncCallback
-		implements MetadataCreateJob.IMetadataAsyncCallback
-	{
-		public void batchId(Id batchId)
-		{
-			// Must have received the Batch Apex Id (this allows clients to provide monitoring UIs)
-			System.assert(batchId!=null, 'Batch Id is null');				
-		}
-		
-		public void deployComplete(List<MetadataCreateJob.Item> items)
-		{
-			// Assert the completed item
-			System.assertEquals('Some context', items[0].context);
-			MetadataService.CustomField customField = (MetadataService.CustomField) items[0].metadata[0];
-			System.assertEquals('Test__c.TestField__c', customField.fullName);
-			System.assertEquals('Test Field', customField.label);
-			System.assertEquals('Text', customField.type_x);
-			System.assertEquals(42, customField.length); 
-			
-			// Currently the platform does not support testing callouts and DML (such as invoking Database.executeBatch)
-			System.assertEquals('You have uncommitted work pending. Please commit or rollback before calling out', 
-				items[0].createException.getMessage());
-			
-			// TODO: Once Summer'13 is released this can be tested properly, as the above restriction will not apply in a test context
-			// System.assertEquals(true, items[0].aysncResult.done);
-		}		
-	}		
+        public void doInvoke(Object stub, Object request, Map<String, Object> response,
+                             String endpoint, String soapAction, String requestName,
+                             String responseNS, String responseName, String responseType) {
+            MetadataService.AsyncResult result = new MetadataService.AsyncResult();
+            result.id = 'mock-request';
+            if (request instanceof MetadataService.create_element) {
+                result.done = !pending;
+                result.state = pending ? 'InProgress' : 'Completed';
+                MetadataService.createResponse_element created = new MetadataService.createResponse_element();
+                created.result = new MetadataService.AsyncResult[]{result};
+                response.put('response_x', created);
+            } else if (request instanceof MetadataService.checkStatus_element) {
+                result.done = true;
+                result.state = 'Completed';
+                MetadataService.checkStatusResponse_element checked = new MetadataService.checkStatusResponse_element();
+                checked.result = new MetadataService.AsyncResult[]{result};
+                response.put('response_x', checked);
+            } else {
+                System.assert(false, 'Unexpected metadata request: ' + requestName);
+            }
+        }
+    }
+
+    private static MetadataCreateJob.Item newItem() {
+        MetadataService.CustomField field = new MetadataService.CustomField();
+        field.fullName = 'Test__c.TestField__c';
+        field.label = 'Test Field';
+        field.type_x = 'Text';
+        field.length = 42;
+        MetadataCreateJob.Item item = new MetadataCreateJob.Item(field);
+        item.context = 'Some context';
+        return item;
+    }
+
+    @IsTest
+    static void testCreateField() {
+        Test.setMock(WebServiceMock.class, new WebServiceMockImpl(false));
+        MetadataCreateJob.Item item = newItem();
+        AssertMetadataAsyncCallback callback = new AssertMetadataAsyncCallback();
+        MetadataCreateJob job = new MetadataCreateJob('test-session', new List<MetadataCreateJob.Item>{item}, callback);
+        Test.startTest();
+        System.assert(job.start(null).iterator().hasNext());
+        job.execute(null, new List<MetadataCreateJob.Item>{item});
+        job.finish(null);
+        Test.stopTest();
+        System.assertEquals(true, callback.completed, 'Successful creation must invoke the completion callback');
+        System.assertEquals(0, callback.scheduledIds.size(), 'Completed creation must not schedule a poll');
+        System.assertEquals(false, job.start(null).iterator().hasNext());
+    }
+
+    @IsTest
+    static void testConcurrentCreateJobs() {
+        AssertMetadataAsyncCallback callback = new AssertMetadataAsyncCallback();
+        Test.startTest();
+        MetadataCreateJob.run('test-session', new List<MetadataCreateJob.Item>{newItem()}, callback);
+        MetadataCreateJob.run('test-session', new List<MetadataCreateJob.Item>{newItem()}, callback);
+        System.assertEquals(2, callback.scheduledIds.size(), 'Both independent requests must be scheduled');
+        System.assertNotEquals(callback.scheduledIds[0], callback.scheduledIds[1]);
+        // Execution is tested directly, so no scheduled job needs to run in this test.
+        for (Id jobId : callback.scheduledIds) {
+            System.abortJob(jobId);
+        }
+        Test.stopTest();
+    }
+
+    @IsTest
+    static void testPendingCreateSchedulesPoll() {
+        Test.setMock(WebServiceMock.class, new WebServiceMockImpl(true));
+        MetadataCreateJob.Item item = newItem();
+        AssertMetadataAsyncCallback callback = new AssertMetadataAsyncCallback();
+        MetadataCreateJob job = new MetadataCreateJob('test-session', new List<MetadataCreateJob.Item>{item}, callback);
+        Test.startTest();
+        job.execute(null, new List<MetadataCreateJob.Item>{item});
+        System.assertEquals(false, item.aysncResult.done);
+        job.finish(null);
+        System.assertEquals(1, callback.scheduledIds.size(), 'Pending creation must schedule one follow-up poll');
+        System.assertEquals(false, callback.completed, 'Pending creation must not report completion');
+        for (Id jobId : callback.scheduledIds) {
+            System.abortJob(jobId);
+        }
+        Test.stopTest();
+    }
+
+    @IsTest
+    static void testPollCompletesCreation() {
+        Test.setMock(WebServiceMock.class, new WebServiceMockImpl(true));
+        MetadataCreateJob.Item item = newItem();
+        AssertMetadataAsyncCallback callback = new AssertMetadataAsyncCallback();
+        MetadataCreateJob job = new MetadataCreateJob('test-session', new List<MetadataCreateJob.Item>{item}, callback);
+        Test.startTest();
+        job.execute(null, new List<MetadataCreateJob.Item>{item});
+        System.assertEquals(false, item.aysncResult.done);
+        job.execute(null, new List<MetadataCreateJob.Item>{item});
+        job.finish(null);
+        Test.stopTest();
+        System.assertEquals(true, callback.completed, 'A completed poll must invoke the completion callback');
+        System.assertEquals(0, callback.scheduledIds.size(), 'A completed poll must not be scheduled again');
+    }
+
+    public class AssertMetadataAsyncCallback implements MetadataCreateJob.IMetadataAsyncCallback {
+        public List<Id> scheduledIds = new List<Id>();
+        public Boolean completed = false;
+
+        public void batchId(Id batchId) {
+            System.assertNotEquals(null, batchId, 'Scheduled job ID must be returned');
+            scheduledIds.add(batchId);
+        }
+
+        public void deployComplete(List<MetadataCreateJob.Item> items) {
+            System.assertEquals(1, items.size());
+            System.assertEquals('Some context', items[0].context);
+            MetadataService.CustomField field = (MetadataService.CustomField) items[0].metadata[0];
+            System.assertEquals('Test__c.TestField__c', field.fullName);
+            System.assertEquals('Test Field', field.label);
+            System.assertEquals('Text', field.type_x);
+            System.assertEquals(42, field.length);
+            System.assertEquals(null, items[0].createException, 'Mocked metadata creation must succeed');
+            System.assertEquals(true, items[0].aysncResult.done);
+            System.assertEquals('Completed', items[0].aysncResult.state);
+            completed = true;
+        }
+    }
 }

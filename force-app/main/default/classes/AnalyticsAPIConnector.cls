@@ -9,7 +9,7 @@ public class AnalyticsAPIConnector {
         httpReq.setHeader('Authorization', 'Bearer ' + UserInfo.getSessionId());
         httpReq.setEndpoint(reqUrl);
         httpRes = http.send(httpReq);
-        return JSONUtils.encode(httpRes.getBody());
+        return JSON.serialize(httpRes.getBody());
         //return httpRes.getBody();
     }
 }
