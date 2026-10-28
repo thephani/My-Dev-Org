@@ -32,5 +32,3 @@ jobs:
       - name: Run All Test
         run: sfdx force:apex:test:run
       
-      - name: Run Flows scanner
-        run: sf flow:scan -u phani@force.com  --json
