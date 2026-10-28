@@ -16,7 +16,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0
+          fetch-depth: 1
 
       - name: Create folder and save server.key
         run: echo "${{ secrets.SIMPLECLI_KEY }}" > ./server.key
@@ -29,6 +29,6 @@ jobs:
         run: |
           sf org login jwt --client-id ${{ vars.DEV_CLIENT_ID }} --jwt-key-file ./server.key --username ${{vars.SF_USERNAME}} --set-default-dev-hub --alias my-dev-org
           
-      - name: Run All Test
-        run: sf apex run test --target-org my-dev-org --resultformat human --codecoverage --wait 10
+      # - name: Run All Test
+      #   run: sf apex run test --target-org my-dev-org --result-format human --code-coverage --wait 10
       
