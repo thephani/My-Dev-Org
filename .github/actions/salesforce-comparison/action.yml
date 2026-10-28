@@ -1,0 +1,118 @@
+name: Matched Salesforce deployment comparison
+description: Install a pinned tool and deploy an isolated committed source snapshot.
+inputs:
+  tool:
+    description: simplesfcli or hardis
+    required: true
+  source-sha:
+    description: Full source commit SHA, identical for both runs
+    required: true
+  mode:
+    description: validate or deploy
+    required: true
+  sf-username:
+    description: Shared Salesforce username secret
+    required: true
+  sf-client-id:
+    description: Shared JWT connected app client ID secret
+    required: true
+  sf-jwt-key:
+    description: Shared PEM private key secret
+    required: true
+  sf-environment:
+    description: PRODUCTION for Developer Edition/production, SANDBOX for sandboxes
+    default: PRODUCTION
+runs:
+  using: composite
+  steps:
+    - name: Validate comparison inputs and load tool pins
+      id: tools
+      shell: bash
+      env:
+        SOURCE_SHA: ${{ inputs.source-sha }}
+        COMPARISON_MODE: ${{ inputs.mode }}
+        COMPARISON_TOOL: ${{ inputs.tool }}
+      run: |
+        python3 - <<'PY'
+        import json, os, pathlib, re
+        if not re.fullmatch(r'[0-9a-f]{40}', os.environ['SOURCE_SHA']):
+            raise SystemExit('Supply a full lowercase 40-character source commit SHA.')
+        if os.environ['COMPARISON_MODE'] not in ('validate', 'deploy'):
+            raise SystemExit('Unsupported comparison mode.')
+        if os.environ['COMPARISON_TOOL'] not in ('simplesfcli', 'hardis'):
+            raise SystemExit('Unsupported comparison tool.')
+        config = pathlib.Path(os.environ['GITHUB_ACTION_PATH']) / '../../../scripts/ci/comparison-tools.json'
+        with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+            for name, value in json.loads(config.read_text()).items():
+                output.write(f'{name}={value}\n')
+        PY
+
+    - name: Checkout the exact source commit
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ inputs.source-sha }}
+        path: deployment-source
+        persist-credentials: false
+
+    - name: Set up Node
+      uses: actions/setup-node@v4
+      with:
+        node-version: '24'
+
+    - name: Checkout pinned SimpleSfCLI
+      if: inputs.tool == 'simplesfcli'
+      uses: actions/checkout@v4
+      with:
+        repository: ${{ steps.tools.outputs.simple_repository }}
+        ref: ${{ steps.tools.outputs.simple_ref }}
+        path: .comparison-tool
+        persist-credentials: false
+
+    - name: Build SimpleSfCLI from its lockfile
+      if: inputs.tool == 'simplesfcli'
+      shell: bash
+      run: |
+        npm ci --prefix "$GITHUB_WORKSPACE/.comparison-tool"
+        mkdir -p "$RUNNER_TEMP/comparison-bin"
+        chmod +x "$GITHUB_WORKSPACE/.comparison-tool/dist/cli.js"
+        ln -s "$GITHUB_WORKSPACE/.comparison-tool/dist/cli.js" "$RUNNER_TEMP/comparison-bin/simpleSfCli"
+        echo "$RUNNER_TEMP/comparison-bin" >> "$GITHUB_PATH"
+
+    - name: Install pinned Salesforce CLI and Hardis
+      if: inputs.tool == 'hardis'
+      shell: bash
+      env:
+        SF_CLI_VERSION: ${{ steps.tools.outputs.sf_cli_version }}
+        HARDIS_VERSION: ${{ steps.tools.outputs.hardis_version }}
+        SF_DISABLE_TELEMETRY: 'true'
+        SF_DISABLE_AUTOUPDATE: 'true'
+      run: |
+        npm install --global "@salesforce/cli@$SF_CLI_VERSION"
+        printf 'y\n' | sf plugins install "sfdx-hardis@$HARDIS_VERSION"
+
+    - name: Run the comparison
+      shell: bash
+      env:
+        COMPARISON_TOOL: ${{ inputs.tool }}
+        SOURCE_SHA: ${{ inputs.source-sha }}
+        COMPARISON_MODE: ${{ inputs.mode }}
+        SF_USERNAME: ${{ inputs.sf-username }}
+        SF_CLIENT_ID: ${{ inputs.sf-client-id }}
+        SF_JWT_KEY: ${{ inputs.sf-jwt-key }}
+        SF_ENVIRONMENT: ${{ inputs.sf-environment }}
+      run: |
+        python3 "$GITHUB_ACTION_PATH/../../../scripts/ci/compare_salesforce.py" \
+          --tool "$COMPARISON_TOOL" \
+          --source-repo "$GITHUB_WORKSPACE/deployment-source" \
+          --source-sha "$SOURCE_SHA" \
+          --mode "$COMPARISON_MODE" \
+          --report "$RUNNER_TEMP/salesforce-comparison-report.json"
+
+    - name: Upload credential-free comparison report
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: salesforce-comparison-${{ inputs.tool }}-${{ github.run_id }}
+        path: ${{ runner.temp }}/salesforce-comparison-report.json
+        if-no-files-found: warn
+        retention-days: 14

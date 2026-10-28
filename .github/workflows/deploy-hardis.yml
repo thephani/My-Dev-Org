@@ -1,0 +1,48 @@
+name: Salesforce comparison - sfdx-hardis
+run-name: sfdx-hardis | ${{ inputs.mode }} | ${{ inputs.source_sha }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_sha:
+        description: Full 40-character source commit SHA; use the same SHA in both workflows
+        required: true
+        type: string
+      mode:
+        description: Use the same mode in both workflows
+        required: true
+        type: choice
+        default: validate
+        options:
+          - validate
+          - deploy
+
+permissions:
+  contents: read
+
+# Shared with deploy-simplesfcli.yml: never deploy to the shared org concurrently.
+concurrency:
+  group: salesforce-deployment-comparison
+  cancel-in-progress: false
+
+jobs:
+  compare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    environment: salesforce-comparison
+    steps:
+      - name: Checkout workflow implementation
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Compare sfdx-hardis
+        uses: ./.github/actions/salesforce-comparison
+        with:
+          tool: hardis
+          source-sha: ${{ inputs.source_sha }}
+          mode: ${{ inputs.mode }}
+          sf-username: ${{ secrets.SF_USERNAME }}
+          sf-client-id: ${{ secrets.DEV_CLIENT_ID__SFDX }}
+          sf-jwt-key: ${{ secrets.SIMPLECLI_KEY }}
+          sf-environment: ${{ vars.SF_ENVIRONMENT || 'PRODUCTION' }}

@@ -30,6 +30,9 @@ Ready to start developing? The [Get Started with Salesforce DX](https://develope
 
 ## Common Salesforce CLI Commands
 
+For the paired GitHub Actions workflows using SimpleSfCLI and sfdx-hardis, see
+[Salesforce deployment comparison setup](docs/salesforce-deployment-comparison.md).
+
 Here are common CLI commands that you'll use the most:
 
 - `sf org login web`: Authorize an org
