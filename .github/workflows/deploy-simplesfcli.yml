@@ -63,8 +63,8 @@ jobs:
           SF_CLIENT_ID: ${{ vars.DEV_CLIENT_ID }}
           SF_JWT_KEY: ${{ secrets.SIMPLECLI_KEY }}
         run: |
-          [[ -n "$SF_USERNAME" ]] || { echo '::error::Set SF_USERNAME as a GitHub secret or variable.'; exit 1; }
-          [[ -n "$SF_CLIENT_ID" ]] || { echo '::error::Set secret DEV_CLIENT_ID__SFDX or variable DEV_CLIENT_ID.'; exit 1; }
+          [[ -n "$SF_USERNAME" ]] || { echo '::error::Set the SF_USERNAME GitHub variable.'; exit 1; }
+          [[ -n "$SF_CLIENT_ID" ]] || { echo '::error::Set the DEV_CLIENT_ID GitHub variable.'; exit 1; }
           [[ -n "$SF_JWT_KEY" ]] || { echo '::error::Set the SIMPLECLI_KEY GitHub secret.'; exit 1; }
           umask 077
           printf '%s' "$SF_JWT_KEY" > "$RUNNER_TEMP/salesforce-jwt.key"
@@ -72,8 +72,8 @@ jobs:
           trap 'echo "::error::Validation failed. Check Salesforce Deployment Status or JWT configuration."' ERR
           timeout 60m npx --yes simple-sf-cli \
             --username "$SF_USERNAME" --clientId "$SF_CLIENT_ID" \
-            --privateKey "$RUNNER_TEMP/salesforce-jwt.key" --env "$SF_ENVIRONMENT" \
-            --source force-app/main/default --baseBranch "$BASE_COMMIT" --targetBranch HEAD \
+            --privateKey "$RUNNER_TEMP/salesforce-jwt.key" --env PROD \
+            --source force-app/main/default \
             --testLevel RunLocalTests --validateOnly deploy \
             > "$RUNNER_TEMP/salesforce-validation.log" 2>&1
 
