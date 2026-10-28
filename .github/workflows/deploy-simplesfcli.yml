@@ -55,19 +55,6 @@ jobs:
         with:
           node-version: '24'
 
-      - name: Checkout SimpleSfCLI
-        if: steps.changes.outputs.changed == 'true'
-        uses: actions/checkout@v4
-        with:
-          repository: thephani/SimpleSfCLI
-          ref: 69e97d517d76ceb42750c750087ea9d49b49af10
-          path: .simpleSfCli-tool
-          persist-credentials: false
-
-      - name: Build SimpleSfCLI
-        if: steps.changes.outputs.changed == 'true'
-        run: npm ci --prefix "$GITHUB_WORKSPACE/.simpleSfCli-tool"
-
       - name: Validate PR changes with SimpleSfCLI
         if: steps.changes.outputs.changed == 'true'
         env:
@@ -80,7 +67,7 @@ jobs:
           printf '%s' "$SF_JWT_KEY" > "$RUNNER_TEMP/salesforce-jwt.key"
           [[ "$SF_ENVIRONMENT" == PRODUCTION || "$SF_ENVIRONMENT" == SANDBOX ]] || exit 1
           trap 'echo "::error::Validation failed. Check Salesforce Deployment Status or JWT configuration."' ERR
-          timeout 60m node "$GITHUB_WORKSPACE/.simpleSfCli-tool/dist/cli.js" \
+          timeout 60m npx --yes simple-sf-cli \
             --username "$SF_USERNAME" --clientId "$SF_CLIENT_ID" \
             --privateKey "$RUNNER_TEMP/salesforce-jwt.key" --env "$SF_ENVIRONMENT" \
             --source force-app/main/default --baseBranch "$BASE_COMMIT" --targetBranch HEAD \

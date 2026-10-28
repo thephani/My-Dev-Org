@@ -35,13 +35,13 @@ Two independent workflows validate PR changes when a PR is opened, reopened, or 
 | Workflow | PR delta | Validation |
 | --- | --- | --- |
 | [Hardis](.github/workflows/deploy-hardis.yml) | `sfdx-git-delta` manifests | Hardis `--dry-run` |
-| [SimpleSfCLI](.github/workflows/deploy-simplesfcli.yml) | Built-in Git delta | `--validateOnly` |
+| [SimpleSfCLI](.github/workflows/deploy-simplesfcli.yml) | Built-in Git delta | `npx --yes simple-sf-cli --validateOnly` |
 
 Both compare the PR head against its merge base, scope changes to `force-app/main/default`, include deletion validation, and use `RunLocalTests`. PRs without metadata changes skip Salesforce validation. There are no manual inputs, deployment mode, helper scripts, or custom reports. Compare the two checks and timings in Actions. New commits cancel older runs of the same workflow for that PR.
 
 Both use the `salesforce-comparison` GitHub environment with secrets `SF_USERNAME`, `DEV_CLIENT_ID__SFDX`, and `SIMPLECLI_KEY`. Set variable `SF_ENVIRONMENT` to `PRODUCTION` (default, including Developer Edition) or `SANDBOX`. Fork PR jobs are skipped because repository credentials are unavailable.
 
-The pinned SimpleSfCLI uses older API versions than this project's API 68.0. Matching Git changes do not guarantee equivalent deployment packages. See the [validation setup](docs/salesforce-deployment-comparison.md).
+SimpleSfCLI runs directly from npm via `npx`; no tool repository checkout or build is needed. Hardis uses Git Delta `6.45.1` explicitly to avoid Salesforce CLI's overflowing npm lookup for the `@6` range. The currently published SimpleSfCLI uses older API versions than this project's API 68.0. Matching Git changes do not guarantee equivalent deployment packages. See the [validation setup](docs/salesforce-deployment-comparison.md).
 
 Here are common CLI commands that you'll use the most:
 

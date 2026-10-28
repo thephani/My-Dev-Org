@@ -60,7 +60,7 @@ jobs:
         run: |
           npm install --global @salesforce/cli@2.155.8
           printf 'y\n' | sf plugins install sfdx-hardis@8.20.1
-          printf 'y\n' | sf plugins install sfdx-git-delta@6
+          printf 'y\n' | sf plugins install sfdx-git-delta@6.45.1
 
       - name: Generate PR delta
         if: steps.changes.outputs.changed == 'true'
