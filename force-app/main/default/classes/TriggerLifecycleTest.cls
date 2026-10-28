@@ -86,8 +86,8 @@ private class TriggerLifecycleTest {
         Test.startTest();
         insert item;
         System.assertEquals('Coverage racket,', [SELECT Latest_Added_Product__c FROM Opportunity WHERE Id = :opportunity.Id].Latest_Added_Product__c);
-        item.Quantity = 3;
-        update new OpportunityLineItem(Id = item.Id, Quantity = 3);
+        // Keep the sales price fixed when changing quantity; otherwise Salesforce preserves TotalPrice.
+        update new OpportunityLineItem(Id = item.Id, Quantity = 3, UnitPrice = 25);
         Test.stopTest();
         Opportunity saved = [SELECT Latest_Added_Product__c, Amount FROM Opportunity WHERE Id = :opportunity.Id];
         System.assertEquals('Coverage racket,', saved.Latest_Added_Product__c, 'Updating quantity must retain a single product name');
