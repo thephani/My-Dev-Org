@@ -72,8 +72,7 @@ jobs:
           npx simple-sf-cli \
             -u "$SF_USERNAME" -c "$SF_CLIENT_ID" \
             -k "$RUNNER_TEMP/salesforce-jwt.key" -e PROD \
-            -v -t RunLocalTests \
-            > "$RUNNER_TEMP/salesforce-validation.log" 2>&1
+            -v -t RunLocalTests 
 
       - name: Clean up credentials
         if: always()
