@@ -25,24 +25,143 @@ concurrency:
   group: salesforce-deployment-comparison
   cancel-in-progress: false
 
+env:
+  SOURCE_SHA: ${{ inputs.source_sha }}
+  COMPARISON_MODE: ${{ inputs.mode }}
+  SF_ENVIRONMENT: ${{ vars.SF_ENVIRONMENT || 'PRODUCTION' }}
+  CI: 'true'
+  SF_DISABLE_TELEMETRY: 'true'
+  SF_DISABLE_AUTOUPDATE: 'true'
+  SFDX_DISABLE_AUTOUPDATE: 'true'
+  SF_CLI_VERSION: '2.155.8'
+  HARDIS_VERSION: '8.20.1'
+
 jobs:
   compare:
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     environment: salesforce-comparison
+    defaults:
+      run:
+        shell: bash
     steps:
-      - name: Checkout workflow implementation
+      - name: Validate comparison inputs
+        run: |
+          [[ "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo '::error::Supply a full lowercase 40-character commit SHA.'; exit 1; }
+          [[ "$COMPARISON_MODE" == validate || "$COMPARISON_MODE" == deploy ]] || exit 1
+          [[ "$SF_ENVIRONMENT" == PRODUCTION || "$SF_ENVIRONMENT" == SANDBOX ]] || exit 1
+
+      - name: Checkout the exact source commit
         uses: actions/checkout@v4
         with:
+          ref: ${{ inputs.source_sha }}
+          path: deployment-source
           persist-credentials: false
 
-      - name: Compare sfdx-hardis
-        uses: ./.github/actions/salesforce-comparison
+      - name: Prepare identical full-source snapshot
+        id: source
+        working-directory: deployment-source
+        run: |
+          [[ "$(git rev-parse HEAD)" == "$SOURCE_SHA" ]] || exit 1
+          comparison_dir="$RUNNER_TEMP/salesforce-comparison"
+          mkdir -m 700 "$comparison_dir"
+          paths=(force-app/main/default sfdx-project.json)
+          git cat-file -e HEAD:sfdx-project.json
+          git cat-file -e HEAD:force-app/main/default
+          if git cat-file -e HEAD:.forceignore 2>/dev/null; then paths+=(.forceignore); fi
+          git ls-tree -r HEAD -- "${paths[@]}" > "$comparison_dir/tree"
+          if grep -qvE '^(100644|100755) blob ' "$comparison_dir/tree"; then
+            echo '::error::Source must contain only regular files, without symlinks or submodules.'
+            exit 1
+          fi
+          git archive HEAD -- "${paths[@]}" > "$comparison_dir/source.tar"
+          echo "sha256=$(sha256sum "$comparison_dir/source.tar" | cut -d ' ' -f 1)" >> "$GITHUB_OUTPUT"
+          mkdir "$comparison_dir/source"
+          tar -xf "$comparison_dir/source.tar" -C "$comparison_dir/source"
+          cd "$comparison_dir/source"
+          git init -q
+          git config user.name 'Salesforce comparison'
+          git config user.email comparison@example.invalid
+          git config core.hooksPath /dev/null
+          git -c commit.gpgsign=false commit -q --allow-empty -m 'Empty comparison base'
+          echo "base=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          git add --force .
+          git -c commit.gpgsign=false commit -q -m 'Committed source snapshot'
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
         with:
-          tool: hardis
-          source-sha: ${{ inputs.source_sha }}
-          mode: ${{ inputs.mode }}
-          sf-username: ${{ secrets.SF_USERNAME }}
-          sf-client-id: ${{ secrets.DEV_CLIENT_ID__SFDX }}
-          sf-jwt-key: ${{ secrets.SIMPLECLI_KEY }}
-          sf-environment: ${{ vars.SF_ENVIRONMENT || 'PRODUCTION' }}
+          node-version: '24'
+
+      - name: Install pinned Salesforce CLI and Hardis
+        run: |
+          npm install --global "@salesforce/cli@$SF_CLI_VERSION"
+          printf 'y\n' | sf plugins install "sfdx-hardis@$HARDIS_VERSION"
+
+      - name: Prepare JWT key
+        env:
+          SF_USERNAME: ${{ secrets.SF_USERNAME }}
+          SF_CLIENT_ID: ${{ secrets.DEV_CLIENT_ID__SFDX }}
+          SF_JWT_KEY: ${{ secrets.SIMPLECLI_KEY }}
+        run: |
+          [[ -n "$SF_USERNAME" && -n "$SF_CLIENT_ID" && -n "$SF_JWT_KEY" ]] || { echo '::error::Missing Salesforce secrets.'; exit 1; }
+          umask 077
+          printf '%s' "$SF_JWT_KEY" > "$RUNNER_TEMP/salesforce-comparison/server.key"
+
+      - name: Authenticate and run deployment
+        id: deployment
+        working-directory: ${{ runner.temp }}/salesforce-comparison/source
+        env:
+          SF_USERNAME: ${{ secrets.SF_USERNAME }}
+          SF_CLIENT_ID: ${{ secrets.DEV_CLIENT_ID__SFDX }}
+          BASE_COMMIT: ${{ steps.source.outputs.base }}
+        run: |
+          SECONDS=0
+          login_url=https://login.salesforce.com
+          if [[ "$SF_ENVIRONMENT" == SANDBOX ]]; then login_url=https://test.salesforce.com; fi
+          status=0
+          timeout 60m sf org login jwt \
+            --username "$SF_USERNAME" --client-id "$SF_CLIENT_ID" \
+            --jwt-key-file "$RUNNER_TEMP/salesforce-comparison/server.key" \
+            --instance-url "$login_url" --alias comparison-org --json \
+            > "$RUNNER_TEMP/salesforce-comparison/authenticated-output.log" 2>&1 || status=$?
+          if [[ "$status" == 0 ]]; then
+            flags=()
+            if [[ "$COMPARISON_MODE" == validate ]]; then flags+=(--dry-run); fi
+            timeout 60m sf hardis:project:deploy:start \
+              --source-dir force-app/main/default --target-org comparison-org \
+              --test-level RunLocalTests --wait 60 "${flags[@]}" \
+              >> "$RUNNER_TEMP/salesforce-comparison/authenticated-output.log" 2>&1 || status=$?
+          fi
+          echo "seconds=$SECONDS" >> "$GITHUB_OUTPUT"
+          if [[ "$status" != 0 ]]; then
+            echo '::error::Authentication or deployment failed. Check JWT setup and Salesforce Deployment Status; raw output is private.'
+          fi
+          exit "$status"
+
+      - name: Write comparison summary
+        if: always()
+        env:
+          INPUT_HASH: ${{ steps.source.outputs.sha256 }}
+          RESULT: ${{ steps.deployment.outcome }}
+          COMMAND_SECONDS: ${{ steps.deployment.outputs.seconds }}
+        run: |
+          {
+            echo '### sfdx-hardis deployment comparison'
+            echo '| Setting | Value |'
+            echo '| --- | --- |'
+            printf '| Source SHA | `%s` |\n' "$SOURCE_SHA"
+            printf '| Source archive SHA-256 | `%s` |\n' "$INPUT_HASH"
+            printf '| Mode | %s |\n' "$COMPARISON_MODE"
+            printf '| Environment | %s |\n' "$SF_ENVIRONMENT"
+            echo '| Test level | RunLocalTests |'
+            printf '| Tool pin | %s |\n' "Salesforce CLI $SF_CLI_VERSION / sfdx-hardis $HARDIS_VERSION"
+            printf '| Deployment step result | %s |\n' "$RESULT"
+            printf '| Authentication and deployment seconds | %s |\n' "$COMMAND_SECONDS"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Clean up credentials and temporary source
+        if: always()
+        run: |
+          timeout 30s sf org logout --target-org comparison-org --no-prompt > /dev/null 2>&1 || true
+          rm -rf "$RUNNER_TEMP/salesforce-comparison"
