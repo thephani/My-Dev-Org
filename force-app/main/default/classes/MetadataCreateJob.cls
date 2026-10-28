@@ -44,6 +44,7 @@ public with sharing class MetadataCreateJob
 	/**
 	 * Private constructor, this job can only be started via the run method
 	 **/
+	@TestVisible
 	private MetadataCreateJob(String sessionId, List<Item> items, IMetadataAsyncCallback callback)
 	{
 		this.sessionId = sessionId;
@@ -121,7 +122,9 @@ public with sharing class MetadataCreateJob
 		Integer maxScopeSize = 1;
 				
 		// Start a job in 1 minutes time to process the given components, inform the callback of the Id
-		callback.batchId( System.scheduleBatch( new MetadataCreateJob(sessionId, items, callback), 'Metadata Create', 1, maxScopeSize ) );		
+		// Every request and follow-up poll needs its own scheduler name.
+        String jobName = 'Metadata Create ' + EncodingUtil.convertToHex(Crypto.generateAesKey(128));
+        callback.batchId( System.scheduleBatch( new MetadataCreateJob(sessionId, items, callback), jobName, 1, maxScopeSize ) );
 	}
 
 	/**

@@ -17,15 +17,29 @@ public class AccountFeedController {
         return accFeed;         
     }
     
-    @isTest    
-	static void testUpdates() {
-		AccountFeedController h = new AccountFeedController();
-		h.feedUpdate = 'hi';
-		h.go();
-		List<AccountFeed> after = h.getRecentTextUpdates();
-		System.assert(after.size() > 0 );
-		System.assertEquals('hi', after[0].body);
-	}
-	
-        
+    @isTest
+    static void testUpdates() {
+        AccountFeedController controller = new AccountFeedController();
+        controller.feedUpdate = 'User feed update';
+        PageReference nextPage = controller.go();
+        FeedItem posted = [SELECT Body, ParentId, Type FROM FeedItem
+                           WHERE ParentId = :UserInfo.getUserId() AND Type = 'TextPost' LIMIT 1];
+        System.assertEquals('User feed update', posted.Body);
+        System.assertEquals(UserInfo.getUserId(), posted.ParentId);
+        System.assertEquals('/_ui/core/userprofile/UserProfilePage', nextPage.getUrl());
+    }
+
+    @isTest
+    static void testRecentAccountUpdates() {
+        Account account = new Account(Name = 'Feed test account');
+        insert account;
+        insert new FeedItem(ParentId = account.Id, Body = 'Account feed update');
+        AccountFeedController controller = new AccountFeedController();
+        controller.feedUpdate = 'User feed update';
+        controller.go();
+
+        List<AccountFeed> updates = controller.getRecentTextUpdates();
+        System.assertEquals(1, updates.size(), 'Only the account text post belongs in the account feed');
+        System.assertEquals('Account feed update', updates[0].Body);
+    }
 }

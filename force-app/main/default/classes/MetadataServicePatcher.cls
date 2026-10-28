@@ -193,8 +193,27 @@ public with sharing class MetadataServicePatcher {
 			  from ApexClass 
 			  where Name = 'MetadataServiceImported'];
 			
+		String patchClass = patchSource(apexClass.Body);
+
+		// Upload the generated code to a Document
+		//   (this can be included in a MavensMate or Eclipse project for easy access via Refresh from Server)
+		List<Document> docs = [select Id from Document where DeveloperName = 'MetadataServicePatched'];
+		Document generatedCode = docs.size()>0 ? docs[0] : new Document();
+		generatedCode.Name = 'MetadataService';
+		generatedCode.Body = Blob.valueOf(patchClass);
+		generatedCode.DeveloperName = 'MetadataServicePatched';
+		generatedCode.FolderId = [select Id from Folder where DeveloperName = 'MetadataServicePatcher'].Id;
+		if(generatedCode.Id == null)
+			insert generatedCode;
+		else
+			update generatedCode;
+	}
+
+	@TestVisible
+	private static String patchSource(String source)
+	{
 		// Process and scan for lines to modify and/or insert
-		LineReader lineReader = new LineReader(apexClass.Body);
+		LineReader lineReader = new LineReader(source);
 		List<String> newLines = new List<String>();
 		addCopyright(newLines);
 		newLines.add('');
@@ -351,22 +370,10 @@ public with sharing class MetadataServicePatcher {
 			}
 			newLines.add(line);
 		}		
-		String patchClass = String.join(newLines, '\n');
+		return String.join(newLines, '\n');
 				
-		// Upload the generated code to a Document 
-		//   (this can be included in a MavensMate or Eclipse project for easy access via Refresh from Server)
-		List<Document> docs = [select Id from Document where DeveloperName = 'MetadataServicePatched'];
-		Document generatedCode = docs.size()>0 ? docs[0] : new Document();
-		generatedCode.Name = 'MetadataService';
-		generatedCode.Body = Blob.valueOf(patchClass);
-		generatedCode.DeveloperName = 'MetadataServicePatched';
-		generatedCode.FolderId = [select Id from Folder where DeveloperName = 'MetadataServicePatcher'].Id;
-		if(generatedCode.Id == null)
-			insert generatedCode;
-		else
-			update generatedCode;
 	}
-	
+
 	public class PatchException extends Exception { }
 	
 	/**

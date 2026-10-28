@@ -2,8 +2,10 @@
 public with sharing class LightningLoginFormControllerTest {
 
  @IsTest
- static void testLoginWithInvalidCredentials() {
-  System.assertEquals('Argument 1 cannot be null', LightningLoginFormController.login('testUser', 'fakepwd', null));
+ static void testLoginOutsideSiteContext() {
+  // Site.login does not authenticate a user in an Apex test outside a site.
+  System.assertEquals(null, Network.getNetworkId());
+  System.assertEquals(null, LightningLoginFormController.login('testUser', 'fakepwd', null));
  }
 
  @IsTest

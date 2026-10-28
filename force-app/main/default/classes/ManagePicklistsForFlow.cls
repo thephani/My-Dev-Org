@@ -19,13 +19,29 @@ global Class ManagePicklistsForFlow implements Process.Plugin {
     Schema.DescribeFieldResult F = sotDesc.fields.getMap().get(FieldAPIName).getDescribe();
     List<Schema.PicklistEntry> P = F.getPicklistValues();   
 
-    for (PicklistEntry aPickListval: P) {
-    	
-        PicklistForFlow__c[] fpv = [select Name from PicklistForFlow__c where ObjectName__c = :ObjectAPIName and PicklistFieldName__c = :FieldAPIName and PickListValue__c = :aPickListval.getValue()];
-        if (fpv.size() == 0 ) {
-            PicklistForFlow__c newFpv = new PicklistForFlow__c(ObjectName__c = ObjectAPIName, PickListValue__c = aPickListval.getValue(), PicklistFieldName__c =FieldAPIName, PickListLabel__c =aPickListval.getLabel()  );
-            Database.insert(newFpv);
+    Set<String> existingValues = new Set<String>();
+    for (PicklistForFlow__c existing : [
+        SELECT PickListValue__c FROM PicklistForFlow__c
+        WHERE ObjectName__c = :ObjectAPIName AND PicklistFieldName__c = :FieldAPIName
+    ]) {
+        if (existing.PickListValue__c != null) {
+            existingValues.add(existing.PickListValue__c.toLowerCase());
         }
+    }
+
+    List<PicklistForFlow__c> missingValues = new List<PicklistForFlow__c>();
+    for (PicklistEntry entry : P) {
+        if (!existingValues.contains(entry.getValue().toLowerCase())) {
+            missingValues.add(new PicklistForFlow__c(
+                ObjectName__c = ObjectAPIName,
+                PickListValue__c = entry.getValue(),
+                PicklistFieldName__c = FieldAPIName,
+                PickListLabel__c = entry.getLabel()
+            ));
+        }
+    }
+    if (!missingValues.isEmpty()) {
+        insert missingValues;
     }
     
     }
@@ -75,11 +91,46 @@ global Class ManagePicklistsForFlow implements Process.Plugin {
         
         
     //Make sure another call to the plugin does not result in duplicate entries
-    result = aPicklistPlugin.invoke(request);        
+    Integer queriesBeforeRepeat = Limits.getQueries();
+    Integer dmlBeforeRepeat = Limits.getDmlStatements();
+    result = aPicklistPlugin.invoke(request);
+    System.assertEquals(1, Limits.getQueries() - queriesBeforeRepeat, 'Existing values must be fetched in one query');
+    System.assertEquals(0, Limits.getDmlStatements() - dmlBeforeRepeat, 'A repeat call must not insert duplicates');
     fpv = [select PicklistFieldName__c from PicklistForFlow__c where ObjectName__c = 'Account' and PicklistFieldName__c = 'Industry'];
     
     System.AssertEquals(P.size(), fpv.size());
                 
+    }
+
+    static testMethod void existingValuesAreMatchedRegardlessOfCase() {
+        List<Schema.PicklistEntry> entries = Account.Industry.getDescribe().getPicklistValues();
+        String value = entries[0].getValue();
+        String caseVariant = value.toUpperCase();
+        if (value.equals(caseVariant)) {
+            caseVariant = value.toLowerCase();
+        }
+        System.assert(!value.equals(caseVariant), 'The fixture must exercise a different letter case');
+        PicklistForFlow__c cached = new PicklistForFlow__c(
+            ObjectName__c = 'Account', PicklistFieldName__c = 'Industry',
+            PickListValue__c = caseVariant, PickListLabel__c = 'Existing label'
+        );
+        insert cached;
+        // Verify the original SOQL comparison treats this cached spelling as a match.
+        System.assertEquals(1, [SELECT count() FROM PicklistForFlow__c
+            WHERE ObjectName__c = 'Account' AND PicklistFieldName__c = 'Industry'
+            AND PickListValue__c = :value]);
+
+        Test.startTest();
+        new ManagePicklistsForFlow().invoke(new Process.PluginRequest(new Map<String, Object>{
+            'ObjectAPIName' => 'Account', 'FieldAPIName' => 'Industry'
+        }));
+        Test.stopTest();
+        System.assertEquals(entries.size(), [SELECT count() FROM PicklistForFlow__c
+            WHERE ObjectName__c = 'Account' AND PicklistFieldName__c = 'Industry'],
+            'A differently cased cached value must not be inserted again');
+        PicklistForFlow__c unchanged = [SELECT PickListValue__c, PickListLabel__c FROM PicklistForFlow__c WHERE Id = :cached.Id];
+        System.assertEquals(caseVariant, unchanged.PickListValue__c);
+        System.assertEquals('Existing label', unchanged.PickListLabel__c);
     }
 
 	static testMethod void describeTest() {
