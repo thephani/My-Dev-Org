@@ -30,5 +30,5 @@ jobs:
           sf org login jwt --client-id ${{ vars.DEV_CLIENT_ID }} --jwt-key-file ./server.key --username ${{vars.SF_USERNAME}} --set-default-dev-hub --alias my-dev-org
           
       - name: Run All Test
-        run: sfdx force:apex:test:run
+        run: sf apex run test --target-org my-dev-org --resultformat human --codecoverage --wait 10
       
