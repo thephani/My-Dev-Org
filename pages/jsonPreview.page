@@ -1,8 +1,0 @@
-<apex:page controller="jsonPreview_controller" sidebar="false"  showHeader="false" standardStylesheets="false" 
-            contentType="application/x-JavaScript; charset=utf-8">
-    {!result}  
-</apex:page> 
-
-<!-- following chrome extension is must
- https://chrome.google.com/webstore/detail/json-viewer/gbmdgpbipfallnflgajpaliibnhdgobh 
--->
