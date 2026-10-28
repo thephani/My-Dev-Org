@@ -30,8 +30,18 @@ Ready to start developing? The [Get Started with Salesforce DX](https://develope
 
 ## Common Salesforce CLI Commands
 
-For the paired GitHub Actions workflows using SimpleSfCLI and sfdx-hardis, see
-[Salesforce deployment comparison setup](docs/salesforce-deployment-comparison.md).
+Two independent workflows validate PR changes when a PR is opened, reopened, or updated:
+
+| Workflow | PR delta | Validation |
+| --- | --- | --- |
+| [Hardis](.github/workflows/deploy-hardis.yml) | `sfdx-git-delta` manifests | Hardis `--dry-run` |
+| [SimpleSfCLI](.github/workflows/deploy-simplesfcli.yml) | Built-in Git delta | `--validateOnly` |
+
+Both compare the PR head against its merge base, scope changes to `force-app/main/default`, include deletion validation, and use `RunLocalTests`. PRs without metadata changes skip Salesforce validation. There are no manual inputs, deployment mode, helper scripts, or custom reports. Compare the two checks and timings in Actions. New commits cancel older runs of the same workflow for that PR.
+
+Both use the `salesforce-comparison` GitHub environment with secrets `SF_USERNAME`, `DEV_CLIENT_ID__SFDX`, and `SIMPLECLI_KEY`. Set variable `SF_ENVIRONMENT` to `PRODUCTION` (default, including Developer Edition) or `SANDBOX`. Fork PR jobs are skipped because repository credentials are unavailable.
+
+The pinned SimpleSfCLI uses older API versions than this project's API 68.0. Matching Git changes do not guarantee equivalent deployment packages. See the [validation setup](docs/salesforce-deployment-comparison.md).
 
 Here are common CLI commands that you'll use the most:
 

@@ -27,9 +27,11 @@
             <div class="panel panel-default">
                 <div class="panel-heading">
                     <h4 class="panel-title">
-                    <a data-toggle="collapse" data-parent="#accordion" href="#collapseTwo">2. What is Twitter Bootstrap?</a>
+                    <a data-toggle="collapse" data-parent="#accordion" href="#collapseTwo">2. Twitter Bootstrap?</a>
                 </h4>
+
                 </div>
+
                 <div id="collapseTwo" class="panel-collapse collapse">
                     <div class="panel-body">
                         <p>Twitter Bootstrap is a powerful front-end framework for faster and easier web development. It is a collection of CSS and HTML conventions. <a href="http://www.tutorialrepublic.com/twitter-bootstrap-tutorial/" target="_blank">Learn more.</a></p>

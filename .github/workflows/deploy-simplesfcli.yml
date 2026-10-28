@@ -1,48 +1,92 @@
-name: Salesforce comparison - SimpleSfCLI
-run-name: SimpleSfCLI | ${{ inputs.mode }} | ${{ inputs.source_sha }}
+name: SimpleSfCLI - Validate PR
 
 on:
-  workflow_dispatch:
-    inputs:
-      source_sha:
-        description: Full 40-character source commit SHA; use the same SHA in both workflows
-        required: true
-        type: string
-      mode:
-        description: Use the same mode in both workflows
-        required: true
-        type: choice
-        default: validate
-        options:
-          - validate
-          - deploy
+  pull_request:
+    types: [opened, reopened, synchronize]
 
 permissions:
   contents: read
 
-# Shared with deploy-hardis.yml: never deploy to the shared org concurrently.
 concurrency:
-  group: salesforce-deployment-comparison
-  cancel-in-progress: false
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  CI: 'true'
+  SF_ENVIRONMENT: ${{ vars.SF_ENVIRONMENT || 'PRODUCTION' }}
+  SF_DISABLE_TELEMETRY: 'true'
+  SF_DISABLE_AUTOUPDATE: 'true'
 
 jobs:
-  compare:
+  validate:
+    if: github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     environment: salesforce-comparison
+    defaults:
+      run:
+        shell: bash
     steps:
-      - name: Checkout workflow implementation
+      - name: Checkout PR source
         uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
           persist-credentials: false
 
-      - name: Compare SimpleSfCLI
-        uses: ./.github/actions/salesforce-comparison
+      - name: Find PR metadata changes
+        id: changes
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          git config diff.renames false
+          base=$(git merge-base "$BASE_SHA" HEAD)
+          echo "base=$base" >> "$GITHUB_OUTPUT"
+          git diff --name-only "$base" HEAD -- force-app/main/default > "$RUNNER_TEMP/pr-metadata-changes"
+          if [[ -s "$RUNNER_TEMP/pr-metadata-changes" ]]; then
+            echo 'changed=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'No Salesforce metadata changes to validate.'
+          fi
+
+      - name: Set up Node
+        if: steps.changes.outputs.changed == 'true'
+        uses: actions/setup-node@v4
         with:
-          tool: simplesfcli
-          source-sha: ${{ inputs.source_sha }}
-          mode: ${{ inputs.mode }}
-          sf-username: ${{ secrets.SF_USERNAME }}
-          sf-client-id: ${{ secrets.DEV_CLIENT_ID__SFDX }}
-          sf-jwt-key: ${{ secrets.SIMPLECLI_KEY }}
-          sf-environment: ${{ vars.SF_ENVIRONMENT || 'PRODUCTION' }}
+          node-version: '24'
+
+      - name: Checkout SimpleSfCLI
+        if: steps.changes.outputs.changed == 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: thephani/SimpleSfCLI
+          ref: 69e97d517d76ceb42750c750087ea9d49b49af10
+          path: .simpleSfCli-tool
+          persist-credentials: false
+
+      - name: Build SimpleSfCLI
+        if: steps.changes.outputs.changed == 'true'
+        run: npm ci --prefix "$GITHUB_WORKSPACE/.simpleSfCli-tool"
+
+      - name: Validate PR changes with SimpleSfCLI
+        if: steps.changes.outputs.changed == 'true'
+        env:
+          BASE_COMMIT: ${{ steps.changes.outputs.base }}
+          SF_USERNAME: ${{ secrets.SF_USERNAME }}
+          SF_CLIENT_ID: ${{ secrets.DEV_CLIENT_ID__SFDX }}
+          SF_JWT_KEY: ${{ secrets.SIMPLECLI_KEY }}
+        run: |
+          umask 077
+          printf '%s' "$SF_JWT_KEY" > "$RUNNER_TEMP/salesforce-jwt.key"
+          [[ "$SF_ENVIRONMENT" == PRODUCTION || "$SF_ENVIRONMENT" == SANDBOX ]] || exit 1
+          trap 'echo "::error::Validation failed. Check Salesforce Deployment Status or JWT configuration."' ERR
+          timeout 60m node "$GITHUB_WORKSPACE/.simpleSfCli-tool/dist/cli.js" \
+            --username "$SF_USERNAME" --clientId "$SF_CLIENT_ID" \
+            --privateKey "$RUNNER_TEMP/salesforce-jwt.key" --env "$SF_ENVIRONMENT" \
+            --source force-app/main/default --baseBranch "$BASE_COMMIT" --targetBranch HEAD \
+            --testLevel RunLocalTests --validateOnly deploy \
+            > "$RUNNER_TEMP/salesforce-validation.log" 2>&1
+
+      - name: Clean up credentials
+        if: always()
+        run: rm -f "$RUNNER_TEMP/salesforce-jwt.key" "$RUNNER_TEMP/salesforce-validation.log"
