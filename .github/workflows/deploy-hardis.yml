@@ -1,48 +1,117 @@
-name: Salesforce comparison - sfdx-hardis
-run-name: sfdx-hardis | ${{ inputs.mode }} | ${{ inputs.source_sha }}
+name: Hardis - Validate PR
 
 on:
-  workflow_dispatch:
-    inputs:
-      source_sha:
-        description: Full 40-character source commit SHA; use the same SHA in both workflows
-        required: true
-        type: string
-      mode:
-        description: Use the same mode in both workflows
-        required: true
-        type: choice
-        default: validate
-        options:
-          - validate
-          - deploy
+  pull_request:
+    types: [opened, reopened, synchronize]
 
 permissions:
   contents: read
 
-# Shared with deploy-simplesfcli.yml: never deploy to the shared org concurrently.
 concurrency:
-  group: salesforce-deployment-comparison
-  cancel-in-progress: false
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  CI: 'true'
+  SF_ENVIRONMENT: ${{ vars.SF_ENVIRONMENT || 'PRODUCTION' }}
+  SF_DISABLE_TELEMETRY: 'true'
+  SF_DISABLE_AUTOUPDATE: 'true'
 
 jobs:
-  compare:
+  validate:
+    if: github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     environment: salesforce-comparison
+    defaults:
+      run:
+        shell: bash
     steps:
-      - name: Checkout workflow implementation
+      - name: Checkout PR source
         uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
           persist-credentials: false
 
-      - name: Compare sfdx-hardis
-        uses: ./.github/actions/salesforce-comparison
+      - name: Find PR metadata changes
+        id: changes
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          git config diff.renames false
+          base=$(git merge-base "$BASE_SHA" HEAD)
+          echo "base=$base" >> "$GITHUB_OUTPUT"
+          git diff --name-only "$base" HEAD -- force-app/main/default > "$RUNNER_TEMP/pr-metadata-changes"
+          if [[ -s "$RUNNER_TEMP/pr-metadata-changes" ]]; then
+            echo 'changed=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'No Salesforce metadata changes to validate.'
+          fi
+
+      - name: Set up Node
+        if: steps.changes.outputs.changed == 'true'
+        uses: actions/setup-node@v4
         with:
-          tool: hardis
-          source-sha: ${{ inputs.source_sha }}
-          mode: ${{ inputs.mode }}
-          sf-username: ${{ secrets.SF_USERNAME }}
-          sf-client-id: ${{ secrets.DEV_CLIENT_ID__SFDX }}
-          sf-jwt-key: ${{ secrets.SIMPLECLI_KEY }}
-          sf-environment: ${{ vars.SF_ENVIRONMENT || 'PRODUCTION' }}
+          node-version: '24'
+
+      - name: Install Salesforce CLI, Hardis, and Git Delta
+        if: steps.changes.outputs.changed == 'true'
+        run: |
+          npm install --global @salesforce/cli@2.155.8
+          printf 'y\n' | sf plugins install sfdx-hardis@8.20.1
+          printf 'y\n' | sf plugins install sfdx-git-delta@6.45.1
+
+      - name: Generate PR delta
+        if: steps.changes.outputs.changed == 'true'
+        id: delta
+        env:
+          BASE_COMMIT: ${{ steps.changes.outputs.base }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/pr-delta" force-app/main/default
+          sf sgd source delta --from "$BASE_COMMIT" --to HEAD \
+            --source-dir force-app/main/default --output-dir "$RUNNER_TEMP/pr-delta"
+          test -f "$RUNNER_TEMP/pr-delta/package/package.xml"
+          test -f "$RUNNER_TEMP/pr-delta/destructiveChanges/destructiveChanges.xml"
+          if grep -q '<members>' "$RUNNER_TEMP/pr-delta/package/package.xml" "$RUNNER_TEMP/pr-delta/destructiveChanges/destructiveChanges.xml"; then
+            echo 'changed=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'No deployable metadata changes to validate.'
+          fi
+
+      - name: Validate PR changes with Hardis
+        if: steps.delta.outputs.changed == 'true'
+        env:
+          SF_USERNAME: ${{ vars.SF_USERNAME }}
+          SF_CLIENT_ID: ${{ vars.DEV_CLIENT_ID }}
+          SF_JWT_KEY: ${{ secrets.SIMPLECLI_KEY }}
+        run: |
+          [[ -n "$SF_USERNAME" ]] || { echo '::error::Set the SF_USERNAME GitHub variable.'; exit 1; }
+          [[ -n "$SF_CLIENT_ID" ]] || { echo '::error::Set the DEV_CLIENT_ID GitHub variable.'; exit 1; }
+          [[ -n "$SF_JWT_KEY" ]] || { echo '::error::Set the SIMPLECLI_KEY GitHub secret.'; exit 1; }
+          umask 077
+          printf '%s' "$SF_JWT_KEY" > "$RUNNER_TEMP/salesforce-jwt.key"
+          login_url=https://login.salesforce.com
+          case "$SF_ENVIRONMENT" in
+            SANDBOX) login_url=https://test.salesforce.com ;;
+            PRODUCTION) ;;
+            *) echo '::error::SF_ENVIRONMENT must be PRODUCTION or SANDBOX.'; exit 1 ;;
+          esac
+          trap 'echo "::error::Validation failed. Check Salesforce Deployment Status or JWT configuration."' ERR
+          sf org login jwt --username "$SF_USERNAME" --client-id "$SF_CLIENT_ID" \
+            --jwt-key-file "$RUNNER_TEMP/salesforce-jwt.key" \
+            --instance-url "$login_url" --alias pr-org --json \
+            > "$RUNNER_TEMP/salesforce-validation.log" 2>&1
+          timeout 60m sf hardis:project:deploy:start \
+            --manifest "$RUNNER_TEMP/pr-delta/package/package.xml" \
+            --post-destructive-changes "$RUNNER_TEMP/pr-delta/destructiveChanges/destructiveChanges.xml" \
+            --target-org pr-org --test-level RunLocalTests --dry-run --wait 60 \
+            >> "$RUNNER_TEMP/salesforce-validation.log" 2>&1
+
+      - name: Clean up credentials
+        if: always()
+        run: |
+          if command -v sf > /dev/null; then
+            timeout 30s sf org logout --target-org pr-org --no-prompt > /dev/null 2>&1 || true
+          fi
+          rm -f "$RUNNER_TEMP/salesforce-jwt.key" "$RUNNER_TEMP/salesforce-validation.log"
