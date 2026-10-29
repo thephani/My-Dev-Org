@@ -25,24 +25,144 @@ concurrency:
   group: salesforce-deployment-comparison
   cancel-in-progress: false
 
+env:
+  SOURCE_SHA: ${{ inputs.source_sha }}
+  COMPARISON_MODE: ${{ inputs.mode }}
+  SF_ENVIRONMENT: ${{ vars.SF_ENVIRONMENT || 'PRODUCTION' }}
+  CI: 'true'
+  SF_DISABLE_TELEMETRY: 'true'
+  SF_DISABLE_AUTOUPDATE: 'true'
+  SFDX_DISABLE_AUTOUPDATE: 'true'
+  SIMPLE_REPOSITORY: thephani/SimpleSfCLI
+  SIMPLE_REF: 69e97d517d76ceb42750c750087ea9d49b49af10
+
 jobs:
   compare:
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     environment: salesforce-comparison
+    defaults:
+      run:
+        shell: bash
     steps:
-      - name: Checkout workflow implementation
+      - name: Validate comparison inputs
+        run: |
+          [[ "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo '::error::Supply a full lowercase 40-character commit SHA.'; exit 1; }
+          [[ "$COMPARISON_MODE" == validate || "$COMPARISON_MODE" == deploy ]] || exit 1
+          [[ "$SF_ENVIRONMENT" == PRODUCTION || "$SF_ENVIRONMENT" == SANDBOX ]] || exit 1
+
+      - name: Checkout the exact source commit
         uses: actions/checkout@v4
         with:
+          ref: ${{ inputs.source_sha }}
+          path: deployment-source
           persist-credentials: false
 
-      - name: Compare SimpleSfCLI
-        uses: ./.github/actions/salesforce-comparison
+      - name: Prepare identical full-source snapshot
+        id: source
+        working-directory: deployment-source
+        run: |
+          [[ "$(git rev-parse HEAD)" == "$SOURCE_SHA" ]] || exit 1
+          comparison_dir="$RUNNER_TEMP/salesforce-comparison"
+          mkdir -m 700 "$comparison_dir"
+          paths=(force-app/main/default sfdx-project.json)
+          git cat-file -e HEAD:sfdx-project.json
+          git cat-file -e HEAD:force-app/main/default
+          if git cat-file -e HEAD:.forceignore 2>/dev/null; then paths+=(.forceignore); fi
+          git ls-tree -r HEAD -- "${paths[@]}" > "$comparison_dir/tree"
+          if grep -qvE '^(100644|100755) blob ' "$comparison_dir/tree"; then
+            echo '::error::Source must contain only regular files, without symlinks or submodules.'
+            exit 1
+          fi
+          git archive HEAD -- "${paths[@]}" > "$comparison_dir/source.tar"
+          echo "sha256=$(sha256sum "$comparison_dir/source.tar" | cut -d ' ' -f 1)" >> "$GITHUB_OUTPUT"
+          mkdir "$comparison_dir/source"
+          tar -xf "$comparison_dir/source.tar" -C "$comparison_dir/source"
+          cd "$comparison_dir/source"
+          git init -q
+          git config user.name 'Salesforce comparison'
+          git config user.email comparison@example.invalid
+          git config core.hooksPath /dev/null
+          git -c commit.gpgsign=false commit -q --allow-empty -m 'Empty comparison base'
+          echo "base=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          git add --force .
+          git -c commit.gpgsign=false commit -q -m 'Committed source snapshot'
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
         with:
-          tool: simplesfcli
-          source-sha: ${{ inputs.source_sha }}
-          mode: ${{ inputs.mode }}
-          sf-username: ${{ secrets.SF_USERNAME }}
-          sf-client-id: ${{ secrets.DEV_CLIENT_ID__SFDX }}
-          sf-jwt-key: ${{ secrets.SIMPLECLI_KEY }}
-          sf-environment: ${{ vars.SF_ENVIRONMENT || 'PRODUCTION' }}
+          node-version: '24'
+
+      - name: Checkout pinned SimpleSfCLI
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.SIMPLE_REPOSITORY }}
+          ref: ${{ env.SIMPLE_REF }}
+          path: .comparison-tool
+          persist-credentials: false
+
+      - name: Build SimpleSfCLI from its lockfile
+        run: |
+          npm ci --prefix "$GITHUB_WORKSPACE/.comparison-tool"
+          chmod +x "$GITHUB_WORKSPACE/.comparison-tool/dist/cli.js"
+
+      - name: Prepare JWT key
+        env:
+          SF_USERNAME: ${{ secrets.SF_USERNAME }}
+          SF_CLIENT_ID: ${{ secrets.DEV_CLIENT_ID__SFDX }}
+          SF_JWT_KEY: ${{ secrets.SIMPLECLI_KEY }}
+        run: |
+          [[ -n "$SF_USERNAME" && -n "$SF_CLIENT_ID" && -n "$SF_JWT_KEY" ]] || { echo '::error::Missing Salesforce secrets.'; exit 1; }
+          umask 077
+          printf '%s' "$SF_JWT_KEY" > "$RUNNER_TEMP/salesforce-comparison/server.key"
+
+      - name: Authenticate and run deployment
+        id: deployment
+        working-directory: ${{ runner.temp }}/salesforce-comparison/source
+        env:
+          SF_USERNAME: ${{ secrets.SF_USERNAME }}
+          SF_CLIENT_ID: ${{ secrets.DEV_CLIENT_ID__SFDX }}
+          BASE_COMMIT: ${{ steps.source.outputs.base }}
+        run: |
+          SECONDS=0
+          flags=()
+          if [[ "$COMPARISON_MODE" == validate ]]; then flags+=(--validateOnly); fi
+          status=0
+          timeout 60m "$GITHUB_WORKSPACE/.comparison-tool/dist/cli.js" \
+            --username "$SF_USERNAME" --clientId "$SF_CLIENT_ID" \
+            --privateKey "$RUNNER_TEMP/salesforce-comparison/server.key" \
+            --env "$SF_ENVIRONMENT" --source force-app/main/default \
+            --baseBranch "$BASE_COMMIT" --targetBranch HEAD \
+            --testLevel RunLocalTests "${flags[@]}" deploy \
+            > "$RUNNER_TEMP/salesforce-comparison/authenticated-output.log" 2>&1 || status=$?
+          echo "seconds=$SECONDS" >> "$GITHUB_OUTPUT"
+          if [[ "$status" != 0 ]]; then
+            echo '::error::Authentication or deployment failed. Check JWT setup and Salesforce Deployment Status; raw output is private.'
+          fi
+          exit "$status"
+
+      - name: Write comparison summary
+        if: always()
+        env:
+          INPUT_HASH: ${{ steps.source.outputs.sha256 }}
+          RESULT: ${{ steps.deployment.outcome }}
+          COMMAND_SECONDS: ${{ steps.deployment.outputs.seconds }}
+        run: |
+          {
+            echo '### SimpleSfCLI deployment comparison'
+            echo '| Setting | Value |'
+            echo '| --- | --- |'
+            printf '| Source SHA | `%s` |\n' "$SOURCE_SHA"
+            printf '| Source archive SHA-256 | `%s` |\n' "$INPUT_HASH"
+            printf '| Mode | %s |\n' "$COMPARISON_MODE"
+            printf '| Environment | %s |\n' "$SF_ENVIRONMENT"
+            echo '| Test level | RunLocalTests |'
+            printf '| Tool pin | %s |\n' "$SIMPLE_REPOSITORY@$SIMPLE_REF"
+            printf '| Deployment step result | %s |\n' "$RESULT"
+            printf '| Authentication and deployment seconds | %s |\n' "$COMMAND_SECONDS"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Clean up credentials and temporary source
+        if: always()
+        run: |
+          rm -rf "$RUNNER_TEMP/salesforce-comparison"

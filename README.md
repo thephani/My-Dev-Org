@@ -30,8 +30,16 @@ Ready to start developing? The [Get Started with Salesforce DX](https://develope
 
 ## Common Salesforce CLI Commands
 
-For the paired GitHub Actions workflows using SimpleSfCLI and sfdx-hardis, see
-[Salesforce deployment comparison setup](docs/salesforce-deployment-comparison.md).
+The deployment comparison uses two self-contained, manually dispatched workflows:
+
+| Workflow | Deployment command | Validation flag |
+| --- | --- | --- |
+| [Hardis](.github/workflows/deploy-hardis.yml) | `sf hardis:project:deploy:start` | `--dry-run` |
+| [SimpleSfCLI](.github/workflows/deploy-simplesfcli.yml) | `simpleSfCli ... deploy` | `--validateOnly` |
+
+Run both with the same full source commit SHA and mode (default: `validate`). Both use `RunLocalTests`, the same Salesforce environment and credentials, and a shared org concurrency lock. Commands and tool pins live directly in each YAML file; no helper scripts are required. Compare source hashes, results, and authentication/deployment durations in their job summaries.
+
+The pinned SimpleSfCLI uses older API versions than this project's API 68.0, so identical source does not guarantee equivalent deployment packages. See the [comparison setup and limitations](docs/salesforce-deployment-comparison.md).
 
 Here are common CLI commands that you'll use the most:
 
